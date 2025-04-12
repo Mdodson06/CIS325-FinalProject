@@ -22,10 +22,10 @@ app.get('/', (req, res) => {
 
 
 //CREATION DATABASE
-const db = new sqlite3.Database('creation.db');
+const creation = new sqlite3.Database('creation.db');
 
 // Set up character and world tables
-db.run(`
+creation.run(`
 CREATE TABLE IF NOT EXISTS world (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
@@ -35,11 +35,11 @@ CREATE TABLE IF NOT EXISTS world (
     backstory LONGTEXT
 );
 `);
-db.run(`
+creation.run(`
 CREATE TABLE IF NOT EXISTS character (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    age INT,
+    age TEXT,
     pronouns TEXT,
     gender TEXT,
     sexuality TEXT,
@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS character (
 
 //SQL query displaying name of (all) characters and/or worlds (and the type if both)
 app.get('/api/creation', (req, res) => {
-    const tableName = req.query.tableName;// || ""; //if tableName not included in the query or tableName is undefined
+    const { tableName, name=""} = req.query;// || ""; //if tableName not included in the query or tableName is undefined
     if(!((tableName == "all") ||
         (tableName == "character") || 
         (tableName == "world"))) 
@@ -63,24 +63,82 @@ app.get('/api/creation', (req, res) => {
         return res.status(500).json({error: "invalid table: " + tableName})
     }
 
-    let query = "SELECT name";
-    if(tableName == "character") {
-        query += " FROM character";
-    } else if(tableName == "world") {
-        query += " FROM world";
-    } else if(tableName == "all") {
-        query += `, 'character' AS type FROM character 
-                  UNION ALL 
-                  SELECT name, 'world' AS type FROM world`;
+    let query = "";
+    switch(tableName) {
+        case "character":
+            query += `SELECT character.name, 'character' AS type FROM character`;
+            query += ` WHERE character.name LIKE "%`;
+            query += name +`%"`;
+            break;
+        case "world":
+            query += `SELECT world.name, 'world' AS type FROM world`;
+            query += ` WHERE world.name LIKE "%`;
+            query += name +`%"`;
+            break;
+        case "all":
+            query += `SELECT character.name, 'character' AS type FROM character`;
+            query += ` WHERE character.name LIKE "%`;
+            query += name +`%"`;
+            query += ` UNION ALL 
+            SELECT world.name, 'world' AS type FROM world`;
+            query += ` WHERE world.name LIKE "%`;
+            query += name +`%"`;
     }
     query += ";";
     
-    db.all(query, (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message + "(tableName = " + tableName + ")"});
+    creation.all(query, (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message + " (tableName = " + tableName + ")"});
         res.json(rows);
         });
 });
- 
+
+//Gets advanced search
+//TODO: Handle both character and world being searched on client-side
+app.get('/api/creation/advanced', (req, res) => {
+    const {tableName, anyField} = req.query; //anyField="" to default to empty string if undefined
+    if(!(//(tableName == "all") ||
+        (tableName == "character") || 
+        (tableName == "world"))) 
+    {
+        return res.status(500).json({error: "invalid table: " + tableName})
+    }
+    let query = "";
+    switch (tableName) {
+        case "character":
+            query = `SELECT character.name,character.age,character.pronouns,character.gender, character.sexuality, character.race, character.backstory,character.colorPallete, world.name AS "world" 
+                    FROM character
+                    LEFT JOIN world
+                    ON character.worldID=world.id 
+                    WHERE character.name LIKE "%`;
+            query += anyField + `%" OR character.age LIKE "%`;
+            query += anyField + `%" OR character.pronouns LIKE "%`;
+            query += anyField + `%" OR character.gender LIKE "%`;
+            query += anyField + `%" OR character.sexuality LIKE "%`;
+            query += anyField + `%" OR character.race LIKE "%`;
+            query += anyField + `%" OR character.backstory LIKE "%`;
+            query += anyField + `%" OR world.name LIKE "%`;
+            query += anyField + `%" OR character.backstory LIKE "%`;
+            query += anyField + `%";`;
+            break;
+        case "world":
+            query += `SELECT world.name, world.landscape, world.landmarks, world.colorPallete 
+                        FROM world 
+                        WHERE world.name LIKE "%`;
+            query += anyField + `%" OR world.landscape LIKE "%`;
+            query += anyField + `%" OR world.landmarks LIKE "%`;
+            query += anyField + `%";`;
+            break;
+        default:
+            break;
+    }
+    
+    creation.all(query, (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message + " (tableName = " + tableName + ")"});
+        console.log(rows);
+        res.json(rows);
+        });
+});
+
 //SQL query displaying all info of a specific character or world (by id)
 //Currently no reason to select all info of all characters/worlds (separate, can't do union without complications)
 //But present, just commented out
@@ -88,8 +146,8 @@ app.get('/api/creation', (req, res) => {
 app.get('/api/creation/:tableName', (req, res) => {
     const tableName = req.params.tableName;
     const id = req.query.id || -1;
-    console.log("ID = " + id + "\ntableName = " + tableName);
-
+    //console.log("ID = " + id + "\ntableName = " + tableName);
+    
     if(id== -1 || 
         !(
         (tableName == "character") || 
@@ -100,7 +158,7 @@ app.get('/api/creation/:tableName', (req, res) => {
     
     let query; 
     if(tableName == "character") {
-        query = `SELECT character.name, age, pronouns, gender, sexuality, race, backstory, character.colorPallete, world.name AS "world" 
+        query = `SELECT character.name, character.age, character.pronouns, character.gender, character.sexuality, character.race, character.backstory, character.colorPallete, world.name AS "world" 
         FROM character 
         LEFT JOIN world
         ON character.worldID=world.id`;
@@ -115,19 +173,19 @@ app.get('/api/creation/:tableName', (req, res) => {
     
     //If looking for a specific world/character
     if(id != -1 && tableName == "character") {
-        console.log("ID = " + id + "tableName = " + tableName);
+        //("ID = " + id + "tableName = " + tableName);
         query += " WHERE character.id =?"
     } else if (id != -1 && tableName == "world") {
-        console.log("ID = " + id + "tableName = " + tableName);
+        //console.log("ID = " + id + "tableName = " + tableName);
         query += " WHERE world.id =?"
     }
     /* if(id == -1) {
-        db.all(query, (err, rows) => {
+        creation.all(query, (err, rows) => {
             if (err) return res.status(500).json({ error: err.message });
             res.json(rows);
             });
     } else { */
-        db.all(query, id, (err, rows) => {
+        creation.all(query, id, (err, rows) => {
             if (err) return res.status(500).json({ error: err.message });
             res.json(rows);
             });
@@ -142,7 +200,7 @@ app.get('/api/creation/world/:id/', (req, res) => {
         LEFT JOIN world
         ON character.worldID=world.id
         WHERE world.id=?`;
-    db.all(query, id, (err, rows) => {
+    creation.all(query, id, (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
         });
@@ -184,7 +242,7 @@ app.post('/api/creation/:tableName/', (req, res) => {
         //let result = "\n - Name: " + name + "\n - Age: " + age + "\n - Pronouns: " + pronouns + "\n - Gender: " + gender + "\n - Sexuality: " + sexuality + "\n - Race: " + race + "\n - Backstory: " + backstory + "\n - colorPallete: " + colorPallete +"\n - worldID: " + worldID;
         //res.send("Character variables: " + result);
         const query = ` INSERT INTO character (name, age, pronouns, gender, sexuality, race, backstory, colorPallete, worldID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) `;
-        db.run(query, [name, age, pronouns, gender, sexuality, race, backstory, colorPallete, worldID], function (err) { if (err) return res.status(500).json({ error: err.message }); res.json({ message: "\"" + name + "\" saved successfully!" });
+        creation.run(query, [name, age, pronouns, gender, sexuality, race, backstory, colorPallete, worldID], function (err) { if (err) return res.status(500).json({ error: err.message }); res.json({ message: "\"" + name + "\" saved successfully!" });
         }); 
     } else {
         let {name, landscape, landmarks, colorPallete, backstory} = req.body;
@@ -205,7 +263,7 @@ app.post('/api/creation/:tableName/', (req, res) => {
         //let result = "\n - Name: " + name + "\n - landscape: " + landscape + "\n - landmarks: " + landmarks + "\n - colorPallete: " + colorPallete + "\n - Backstory: " + backstory;
         //res.send("World variables: " + result);
         const query = ` INSERT INTO world (name, landscape, landmarks, backstory, colorPallete) VALUES (?, ?, ?, ?, ?) `;
-        db.run(query, [name, landscape, landmarks, backstory, colorPallete], function (err) { if (err) return res.status(500).json({ error: err.message }); res.json({ message: "\"" + name + "\" saved successfully!" });
+        creation.run(query, [name, landscape, landmarks, backstory, colorPallete], function (err) { if (err) return res.status(500).json({ error: err.message }); res.json({ message: "\"" + name + "\" saved successfully!" });
         }); 
     }
   });
@@ -312,7 +370,7 @@ app.put('/api/creation/:tableName/:id', (req, res) => {
         }
 
         /* const query = ` INSERT INTO world (name, landscape, landmarks, backstory, colorPallete) VALUES (?, ?, ?, ?, ?) `;
-        db.run(query, [name, landscape, landmarks, backstory, colorPallete], function (err) { if (err) return res.status(500).json({ error: err.message }); res.json({ message: "\"" + name + "\" saved successfully!" });
+        creation.run(query, [name, landscape, landmarks, backstory, colorPallete], function (err) { if (err) return res.status(500).json({ error: err.message }); res.json({ message: "\"" + name + "\" saved successfully!" });
         });  */
     }
     values.push(id);
@@ -326,7 +384,7 @@ app.put('/api/creation/:tableName/:id', (req, res) => {
         }
     }
     query += " WHERE id = ?"
-    db.run(query, values, function (err) { if (err) return res.status(500).json({ error: err.message }); 
+    creation.run(query, values, function (err) { if (err) return res.status(500).json({ error: err.message }); 
     //res.json({ message: "\"" + name + "\" saved successfully!" });
     res.json({ message: tableName + " saved successfully!" });
     }); 
@@ -350,7 +408,7 @@ app.delete('/api/creation/:tableName/:id', (req, res) => {
     /* 
     //Failed attempt at check first
     query = "SELECT id FROM " + tableName + " WHERE id=?;"
-    db.run(query, id, function (err, rows) {
+    creation.run(query, id, function (err, rows) {
         if (err) return res.status(500).json({ error: err.message });
         //res.json({ message: 'Record deleted successfully' });
         const check = 2;
@@ -364,8 +422,12 @@ app.delete('/api/creation/:tableName/:id', (req, res) => {
     
     //Actually delete
     let query = "DELETE FROM "  + tableName + " WHERE id = ?";
-    db.run(query, id, function (err) {
+    creation.run(query, id, function (err) {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ message: 'Record deleted successfully' });
     });
   });
+
+
+//LOGIN DATABASE
+const login = new sqlite3.Database('login.db');
