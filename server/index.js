@@ -93,44 +93,110 @@ app.get('/api/creation', (req, res) => {
 });
 
 //Gets advanced search
-//TODO: Handle both character and world being searched on client-side
+//TODO: Handle combining character and world search on client-side
+//worldName only for when searching characters looking at the worldName associated with them 
 app.get('/api/creation/advanced', (req, res) => {
-    const {tableName, anyField} = req.query; //anyField="" to default to empty string if undefined
+    const {tableName, anyField, name, age, pronouns, gender, sexuality, race, worldName, landscape, landmarks} = req.query; //anyField="" to default to empty string if undefined
     if(!(//(tableName == "all") ||
         (tableName == "character") || 
         (tableName == "world"))) 
     {
         return res.status(500).json({error: "invalid table: " + tableName})
     }
+    //TODO: Definitely a better way to do this but couldn't figure out how to pass an array yet
+    //Run checks for which are defined
+    let fields = [];
+    let values = [];
+    if(!(name === undefined)) {
+        fields.push("name");
+        values.push(name);
+    }
+    if(!(age === undefined) && tableName=="character") {
+        fields.push("age");
+        values.push(age);
+    }
+    if(!(pronouns === undefined) && tableName=="character") {
+        fields.push("pronouns");
+        values.push(pronouns);
+    }
+    if(!(gender === undefined) && tableName=="character") {
+        fields.push("gender");
+        values.push(gender);
+    }
+    if(!(sexuality === undefined) && tableName=="character") {
+        fields.push("sexuality");
+        values.push(sexuality);
+    }
+    if(!(race === undefined) && tableName=="character") {
+        fields.push("race");
+        values.push(race);
+    }
+    if(!(landscape === undefined) && tableName=="world") {
+        fields.push("landscape");
+        values.push(landscape);
+    }
+    if(!(landmarks === undefined) && tableName=="world") {
+        fields.push("landmarks");
+        values.push(landmarks);
+    }
+
     let query = "";
     switch (tableName) {
         case "character":
             query = `SELECT character.name,character.age,character.pronouns,character.gender, character.sexuality, character.race, character.backstory,character.colorPallete, world.name AS "world" 
                     FROM character
                     LEFT JOIN world
-                    ON character.worldID=world.id 
-                    WHERE character.name LIKE "%`;
-            query += anyField + `%" OR character.age LIKE "%`;
-            query += anyField + `%" OR character.pronouns LIKE "%`;
-            query += anyField + `%" OR character.gender LIKE "%`;
-            query += anyField + `%" OR character.sexuality LIKE "%`;
-            query += anyField + `%" OR character.race LIKE "%`;
-            query += anyField + `%" OR character.backstory LIKE "%`;
-            query += anyField + `%" OR world.name LIKE "%`;
-            query += anyField + `%" OR character.backstory LIKE "%`;
-            query += anyField + `%";`;
+                    ON character.worldID=world.id WHERE `;
+            if(anyField === undefined && worldName === undefined && fields.length == 0) { //if no specifications (to make WHEREs easier)
+                query += "TRUE";
+                break;
+            } else {
+                query += "FALSE";
+            }
+            if(!(anyField === undefined)) //anyField different than others so has to be handled separately 
+            {
+                query += ` OR character.name LIKE "%`;
+                query += anyField + `%" OR character.age LIKE "%`;
+                query += anyField + `%" OR character.pronouns LIKE "%`;
+                query += anyField + `%" OR character.gender LIKE "%`;
+                query += anyField + `%" OR character.sexuality LIKE "%`;
+                query += anyField + `%" OR character.race LIKE "%`;
+                query += anyField + `%" OR world.name LIKE "%`;
+                query += anyField + `%"`;
+            }
+            if(!(worldName === undefined)) { //only for if searching in characters for a world
+                query += ` OR world.name LIKE "%`;
+                query += worldName + `%"`;
+            }
+            for (let i = 0; i < fields.length; i++) {
+                query += " OR character." + fields[i] + ` LIKE "%` + values[i] + `%"`;
+            }
             break;
         case "world":
             query += `SELECT world.name, world.landscape, world.landmarks, world.colorPallete 
                         FROM world 
-                        WHERE world.name LIKE "%`;
-            query += anyField + `%" OR world.landscape LIKE "%`;
-            query += anyField + `%" OR world.landmarks LIKE "%`;
-            query += anyField + `%";`;
+                        WHERE `;
+            if(anyField === undefined && worldName === undefined && fields.length == 0) { //if no specifications (to make WHEREs easier) (worldName shouldn't be defined for a world but to prevent worse errors)
+                query += "TRUE";
+                break;
+            } else {
+                query += "FALSE";
+            }
+            if(!(anyField === undefined)) //anyField different than others so has to be handled separately 
+            {
+                query += ` OR world.name LIKE "%`;
+                query += anyField + `%" OR world.landscape LIKE "%`;
+                query += anyField + `%" OR world.landmarks LIKE "%`;
+                query += anyField + `%"`;
+            }
+            for (let i = 0; i < fields.length; i++) {
+                query += " OR world." + fields[i] + ` LIKE "%` + values[i] + `%"`;
+            }
             break;
         default:
             break;
     }
+    query += ";";
     
     creation.all(query, (err, rows) => {
         if (err) return res.status(500).json({ error: err.message + " (tableName = " + tableName + ")"});
@@ -364,9 +430,9 @@ app.put('/api/creation/:tableName/:id', (req, res) => {
             fields.push("colorPallete");
             values.push(colorPallete);
         }
-        if(!(worldID === undefined)) {
-            fields.push("worldID");
-            values.push(worldID);
+        if(!(backstory === undefined)) {
+            fields.push("backstory");
+            values.push(backstory);
         }
 
         /* const query = ` INSERT INTO world (name, landscape, landmarks, backstory, colorPallete) VALUES (?, ?, ?, ?, ?) `;
