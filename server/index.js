@@ -21,11 +21,23 @@ app.get('/', (req, res) => {
 })
 
 
-//CREATION DATABASE
-const creation = new sqlite3.Database('creation.db');
+//TODO: Connect world/character to login
+//SQL-injection prevention reference: https://planetscale.com/blog/how-to-prevent-sql-injection-attacks-in-node-js
+const db = new sqlite3.Database('creation.db');
+let signedInUser = 1;//null; //ID of the currently signed in user
+//TODO: Remove hard coded user 
 
-// Set up character and world tables
-creation.run(`
+// Set up character, world, and login tables
+db.run(`
+    CREATE TABLE IF NOT EXISTS user (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT UNIQUE NOT NULL,
+        username TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL
+    );
+`);
+
+db.run(`
 CREATE TABLE IF NOT EXISTS world (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
@@ -35,7 +47,7 @@ CREATE TABLE IF NOT EXISTS world (
     backstory LONGTEXT
 );
 `);
-creation.run(`
+db.run(`
 CREATE TABLE IF NOT EXISTS character (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
@@ -51,6 +63,142 @@ CREATE TABLE IF NOT EXISTS character (
 );
 `);
 
+
+
+//Checks for the presences of a given username/email AND password
+//returns "pass" for every "value" returned to maintain security
+app.get('/api/login/verify', (req, res) => {
+    const { username="", email="", password="" } = req.body;
+    //If password not provided or neither username nor email provided
+    //Should be handled client-side but just in case
+    if(password == "" || 
+        ((username == "") && (email == ""))
+    ) {
+        return res.status(500).json({error: "username \/ email or password not provided: {username=" + username + ", email=" + email + "}"}) 
+    }
+    let query = `SELECT 'pass' AS 'values' FROM user WHERE password = ? AND `; //So it doesn't directly pass what the id is
+    let user = "";    
+    if (email != "") {
+        query += "email = ?";
+        user = email;
+    } else if(username !="") { //doesn't check if both are provided because both should be unique so shouldn't matter 
+        query += "username = ?"; 
+        user = username;
+    }
+    db.all(query, [password, user], (err,rows) =>{
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+});
+
+//Logs user in
+//NOTE: Very similar to /verify, only change is that it doesn't return a "value: pass" to client-side
+//Possibly can combine, but believe verify will be needed beyond logging in so separated
+app.get('/api/login/loginAttempt', (req, res) => {
+    const { username="", email="", password="" } = req.body;
+    //If password not provided or neither username nor email provided
+    //Should be handled client-side but just in case
+    if(password == "" || 
+        ((username == "") && (email == ""))
+    ) {
+        return res.status(500).json({error: "username \/ email or password not provided: {username=" + username + ", email=" + email + "}"}) 
+    }
+    let query = `SELECT id FROM user WHERE password = ? AND `; //So it doesn't directly pass what the id is
+    let user = "";    
+    if (email != "") {
+        query += "email = ?";
+        user = email;
+    } else if(username !="") { //doesn't check if both are provided because both should be unique so shouldn't matter 
+        query += "username = ?"; 
+        user = username;
+    }
+    db.all(query, [password, user], (err,rows) =>{
+        if (err) return res.status(500).json({ error: err.message });
+        if(rows.length == 1) {
+            signedInUser = rows.at(0);
+            return res.json({"message" : "logged in"});
+        } 
+        res.json(rows);
+    });
+});
+
+//Updates to specified information
+//OLD: Requires all query fields be filled out 
+app.put('/api/login/update', (req, res) => {
+    const { username="", email="", oldPassword="", newPassword=""} = req.body;
+    if(oldPassword == "" || 
+        ((username == "") && (email == ""))
+    ) {
+        return res.status(500).json({error: "username \/ email or old password not provided: {username=" + username + ", email=" + email + "}"}) 
+    }
+    fields = [];
+    values = [];
+    let query = "UPDATE user SET ";
+    
+    //verify which ones (doesn't allow empty strings)
+    if(username != "") {
+        fields.push("username");
+        values.push(username);
+    }
+    if(email != "") {
+        fields.push("email");
+        values.push(email);
+    }
+    if(newPassword != "") { //Already checked that oldPassword != ""
+        fields.push("backstory");
+        values.push(backstory);
+    }
+    values.push(signedInUser);
+    //let result = "";
+    for (let i = 0; i < fields.length; i++) {
+        //result += "\n - " + fields[i] + ": " + values[i];
+        query += fields[i] + " = ?"
+        if (i != (fields.length-1)) {
+            query += ", "
+        }
+    }
+    query += " WHERE id = ?"; //NOTE: doesn't properly stop from responding successful if id=null (or doesn't exist in the table?)
+    
+    //UNIQUE check handled by sql error
+    db.run(query, values, function (err) { if (err) return res.status(500).json({ error: err.message }); 
+    //res.json({ message: "\"" + name + "\" saved successfully!" });
+    res.json({ message: "user info updated successfully!" });
+    });
+});
+
+app.post('/api/login/sign-up', (req, res) => {
+    const { username="", email="", password=""} = req.body;
+    if(password == "" || username == "" || email == "") {
+        return res.status(500).json({error: "all fields must be filled"}); 
+    }
+    let query = "INSERT INTO user (username, email, password) VALUES(?, ?, ?)";
+    db.run(query, [username, email, password], function (err) { if (err) return res.status(500).json({ error: err.message }); 
+    signedInUser = this.lastID;
+    res.json({ message: "signed up successfully!" });
+    });
+});
+
+//NOTE: only need app.something if navigating backend which we shouldn't
+//Handle shifting to a logout screen on the frontend
+function logout() {
+    signedInUser = null;
+}
+
+app.delete('/api/login/delete-user', (req, res) => {
+    /* const { username="", email="", password=""} = req.body;
+    if(password == "" || username == "" || email == "") {
+        return res.status(500).json({error: "all fields must be filled"}); 
+    } */
+    let query = "DELETE FROM user WHERE id = ?";
+    db.run(query, signedInUser, function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+        signedInUser = null;
+        res.json({ message: 'Record deleted successfully' }); //NOTE: Currently returns success even if the id didn't exist before
+    });
+});
+
+
+//MAIN SITE
 //get 
 
 //SQL query displaying name of (all) characters and/or worlds (and the type if both)
@@ -86,10 +234,31 @@ app.get('/api/creation', (req, res) => {
     }
     query += ";";
     
-    creation.all(query, (err, rows) => {
+    db.all(query, (err, rows) => {
         if (err) return res.status(500).json({ error: err.message + " (tableName = " + tableName + ")"});
         res.json(rows);
         });
+});
+
+//Gets the id of all matching
+//Used for checking before inserting/deleting
+//TODO: Update with any other exact specification things found to be needed after starting client-side
+app.get('/api/creation/verify', (req, res) => {
+    const {tableName, name} = req.query;
+    if(name===undefined || !(//(tableName == "all") ||
+        (tableName == "character") || 
+        (tableName == "world"))) 
+    {
+        return res.status(500).json({error: "invalid table or id {tableName=" + tableName + ", id=" + id + "}"})
+    }
+    query = "SELECT id FROM " + tableName + " WHERE name=?";
+
+    db.all(query, name, (err, rows) => {
+            if (err) return res.status(500).json({ error: err.message + " (tableName = " + tableName + ")"});
+            console.log(rows);
+            res.json(rows);
+            });
+
 });
 
 //Gets advanced search
@@ -198,7 +367,7 @@ app.get('/api/creation/advanced', (req, res) => {
     }
     query += ";";
     
-    creation.all(query, (err, rows) => {
+    db.all(query, (err, rows) => {
         if (err) return res.status(500).json({ error: err.message + " (tableName = " + tableName + ")"});
         console.log(rows);
         res.json(rows);
@@ -246,12 +415,12 @@ app.get('/api/creation/:tableName', (req, res) => {
         query += " WHERE world.id =?"
     }
     /* if(id == -1) {
-        creation.all(query, (err, rows) => {
+        db.all(query, (err, rows) => {
             if (err) return res.status(500).json({ error: err.message });
             res.json(rows);
             });
     } else { */
-        creation.all(query, id, (err, rows) => {
+        db.all(query, id, (err, rows) => {
             if (err) return res.status(500).json({ error: err.message });
             res.json(rows);
             });
@@ -266,7 +435,7 @@ app.get('/api/creation/world/:id/', (req, res) => {
         LEFT JOIN world
         ON character.worldID=world.id
         WHERE world.id=?`;
-    creation.all(query, id, (err, rows) => {
+    db.all(query, id, (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
         });
@@ -308,7 +477,7 @@ app.post('/api/creation/:tableName/', (req, res) => {
         //let result = "\n - Name: " + name + "\n - Age: " + age + "\n - Pronouns: " + pronouns + "\n - Gender: " + gender + "\n - Sexuality: " + sexuality + "\n - Race: " + race + "\n - Backstory: " + backstory + "\n - colorPallete: " + colorPallete +"\n - worldID: " + worldID;
         //res.send("Character variables: " + result);
         const query = ` INSERT INTO character (name, age, pronouns, gender, sexuality, race, backstory, colorPallete, worldID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) `;
-        creation.run(query, [name, age, pronouns, gender, sexuality, race, backstory, colorPallete, worldID], function (err) { if (err) return res.status(500).json({ error: err.message }); res.json({ message: "\"" + name + "\" saved successfully!" });
+        db.run(query, [name, age, pronouns, gender, sexuality, race, backstory, colorPallete, worldID], function (err) { if (err) return res.status(500).json({ error: err.message }); res.json({ message: "\"" + name + "\" saved successfully!" });
         }); 
     } else {
         let {name, landscape, landmarks, colorPallete, backstory} = req.body;
@@ -329,12 +498,13 @@ app.post('/api/creation/:tableName/', (req, res) => {
         //let result = "\n - Name: " + name + "\n - landscape: " + landscape + "\n - landmarks: " + landmarks + "\n - colorPallete: " + colorPallete + "\n - Backstory: " + backstory;
         //res.send("World variables: " + result);
         const query = ` INSERT INTO world (name, landscape, landmarks, backstory, colorPallete) VALUES (?, ?, ?, ?, ?) `;
-        creation.run(query, [name, landscape, landmarks, backstory, colorPallete], function (err) { if (err) return res.status(500).json({ error: err.message }); res.json({ message: "\"" + name + "\" saved successfully!" });
+        db.run(query, [name, landscape, landmarks, backstory, colorPallete], function (err) { if (err) return res.status(500).json({ error: err.message }); res.json({ message: "\"" + name + "\" saved successfully!" });
         }); 
     }
   });
 
 //update
+
 //Client-side, pass empty string to change a value to null
 //Don't call the key if you don't want to change 
 //TODO: Handle client-side making everything properly int and worldID actual worldID
@@ -436,7 +606,7 @@ app.put('/api/creation/:tableName/:id', (req, res) => {
         }
 
         /* const query = ` INSERT INTO world (name, landscape, landmarks, backstory, colorPallete) VALUES (?, ?, ?, ?, ?) `;
-        creation.run(query, [name, landscape, landmarks, backstory, colorPallete], function (err) { if (err) return res.status(500).json({ error: err.message }); res.json({ message: "\"" + name + "\" saved successfully!" });
+        db.run(query, [name, landscape, landmarks, backstory, colorPallete], function (err) { if (err) return res.status(500).json({ error: err.message }); res.json({ message: "\"" + name + "\" saved successfully!" });
         });  */
     }
     values.push(id);
@@ -450,10 +620,10 @@ app.put('/api/creation/:tableName/:id', (req, res) => {
         }
     }
     query += " WHERE id = ?"
-    creation.run(query, values, function (err) { if (err) return res.status(500).json({ error: err.message }); 
+    db.run(query, values, function (err) { if (err) return res.status(500).json({ error: err.message }); 
     //res.json({ message: "\"" + name + "\" saved successfully!" });
     res.json({ message: tableName + " saved successfully!" });
-    }); 
+    });
 });
 
 
@@ -474,7 +644,7 @@ app.delete('/api/creation/:tableName/:id', (req, res) => {
     /* 
     //Failed attempt at check first
     query = "SELECT id FROM " + tableName + " WHERE id=?;"
-    creation.run(query, id, function (err, rows) {
+    db.run(query, id, function (err, rows) {
         if (err) return res.status(500).json({ error: err.message });
         //res.json({ message: 'Record deleted successfully' });
         const check = 2;
@@ -488,12 +658,8 @@ app.delete('/api/creation/:tableName/:id', (req, res) => {
     
     //Actually delete
     let query = "DELETE FROM "  + tableName + " WHERE id = ?";
-    creation.run(query, id, function (err) {
+    db.run(query, id, function (err) {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ message: 'Record deleted successfully' });
     });
   });
-
-
-//LOGIN DATABASE
-const login = new sqlite3.Database('login.db');
