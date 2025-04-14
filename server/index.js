@@ -21,10 +21,10 @@ app.get('/', (req, res) => {
 })
 
 
-//TODO: Connect world/character to login
+//TODO: Connect world/character to login (Add userID foreign key to both)
 //SQL-injection prevention reference: https://planetscale.com/blog/how-to-prevent-sql-injection-attacks-in-node-js
 const db = new sqlite3.Database('creation.db');
-let signedInUser = 1;//null; //ID of the currently signed in user
+let loggedInUser = null; //ID of the currently signed in user
 //TODO: Remove hard coded user 
 
 // Set up character, world, and login tables
@@ -76,7 +76,7 @@ app.get('/api/login/verify', (req, res) => {
     ) {
         return res.status(500).json({error: "username \/ email or password not provided: {username=" + username + ", email=" + email + "}"}) 
     }
-    let query = `SELECT 'pass' AS 'values' FROM user WHERE password = ? AND `; //So it doesn't directly pass what the id is
+    let query = `SELECT 'pass' AS 'message' FROM user WHERE password = ? AND `; //So it doesn't directly pass what the id is
     let user = "";    
     if (email != "") {
         query += "email = ?";
@@ -92,18 +92,21 @@ app.get('/api/login/verify', (req, res) => {
 });
 
 //Logs user in
-//NOTE: Very similar to /verify, only change is that it doesn't return a "value: pass" to client-side
+//NOTE: Very similar to /verify, only change is that actually signs them in
 //Possibly can combine, but believe verify will be needed beyond logging in so separated
 app.get('/api/login/loginAttempt', (req, res) => {
-    const { username="", email="", password="" } = req.body;
+    console.log("~~~");
+    console.log(req.body);
+    console.log("Logged in? " + loggedInUser);
+    const { username="", email="", password="" } = req.body || ""; //NOTE: || "" prevents errors if the body isn't provided at all
     //If password not provided or neither username nor email provided
     //Should be handled client-side but just in case
     if(password == "" || 
         ((username == "") && (email == ""))
     ) {
-        return res.status(500).json({error: "username \/ email or password not provided: {username=" + username + ", email=" + email + "}"}) 
+        return res.status(500).json({error: "(loginAttempt) username \/ email or password not provided: {username=" + username + ", email=" + email + "}"}) 
     }
-    let query = `SELECT id FROM user WHERE password = ? AND `; //So it doesn't directly pass what the id is
+    let query = `SELECT id, username FROM user WHERE password = ? AND `; //So it doesn't directly pass what the id is
     let user = "";    
     if (email != "") {
         query += "email = ?";
@@ -115,25 +118,39 @@ app.get('/api/login/loginAttempt', (req, res) => {
     db.all(query, [password, user], (err,rows) =>{
         if (err) return res.status(500).json({ error: err.message });
         if(rows.length == 1) {
-            signedInUser = rows.at(0);
-            return res.json({"message" : "logged in"});
-        } 
-        res.json(rows);
+            loggedInUser = rows[0].id;
+            console.log("Logged in ID: " + loggedInUser);
+            return res.json({"entry":"pass", "message" : "Welcome " + rows[0].username + "!"}); //TODO: just return the username?
+        } else if(rows.length == 0) {
+            return res.json({"entry" : "denied"});
+        } else {
+            return res.status(500).json({error: "multiple rows with given user/email and password"});
+        }
     });
 });
 
 //Updates to specified information
-//OLD: Requires all query fields be filled out 
 app.put('/api/login/update', (req, res) => {
-    const { username="", email="", oldPassword="", newPassword=""} = req.body;
-    if(oldPassword == "" || 
-        ((username == "") && (email == ""))
-    ) {
-        return res.status(500).json({error: "username \/ email or old password not provided: {username=" + username + ", email=" + email + "}"}) 
+    const { username="", email="", newPassword=""} = req.body;
+    if(loggedInUser==null || oldPassword == "") {
+        return res.status(500).json({error: "User not logged in or old password not provided"}) 
     }
+    
+    let query = "SELECT password FROM user WHERE id=?";
+    //db.exec()
+    let result = false; 
+    db.run(query,loggedInUser, function (err, row) {
+        if (err) return res.status(500).json({ error: err.message }); 
+        else if (row[0].password != oldPassword) {
+            return res.json({entry:"denied"});
+        }
+    });
+    
+    
     fields = [];
     values = [];
-    let query = "UPDATE user SET ";
+    
+    query = "UPDATE user SET ";
     
     //verify which ones (doesn't allow empty strings)
     if(username != "") {
@@ -145,10 +162,10 @@ app.put('/api/login/update', (req, res) => {
         values.push(email);
     }
     if(newPassword != "") { //Already checked that oldPassword != ""
-        fields.push("backstory");
-        values.push(backstory);
+        fields.push("password"); //newPassword saved under password column 
+        values.push(newPassword);
     }
-    values.push(signedInUser);
+    values.push(loggedInUser);
     //let result = "";
     for (let i = 0; i < fields.length; i++) {
         //result += "\n - " + fields[i] + ": " + values[i];
@@ -157,7 +174,7 @@ app.put('/api/login/update', (req, res) => {
             query += ", "
         }
     }
-    query += " WHERE id = ?"; //NOTE: doesn't properly stop from responding successful if id=null (or doesn't exist in the table?)
+    query += " WHERE id = ?"; //NOTE: doesn't properly stop from responding successful if id doesn't exist in the table
     
     //UNIQUE check handled by sql error
     db.run(query, values, function (err) { if (err) return res.status(500).json({ error: err.message }); 
@@ -167,32 +184,42 @@ app.put('/api/login/update', (req, res) => {
 });
 
 app.post('/api/login/sign-up', (req, res) => {
+    console.log(req.body);
     const { username="", email="", password=""} = req.body;
     if(password == "" || username == "" || email == "") {
         return res.status(500).json({error: "all fields must be filled"}); 
     }
     let query = "INSERT INTO user (username, email, password) VALUES(?, ?, ?)";
     db.run(query, [username, email, password], function (err) { if (err) return res.status(500).json({ error: err.message }); 
-    signedInUser = this.lastID;
-    res.json({ message: "signed up successfully!" });
+    loggedInUser = this.lastID;
+    res.json({ entry: "pass" });
     });
 });
 
 //NOTE: only need app.something if navigating backend which we shouldn't
 //Handle shifting to a logout screen on the frontend
-function logout() {
-    signedInUser = null;
-}
+app.post('/api/login/logout/', (req, res) => {
+    if(loggedInUser == null) {
+        return res.status(500).json({ error: "No user logged in" });
+    } else {
+        loggedInUser = null;
+        return res.status(200).json({message: "logged out"});
+    }
+});
 
 app.delete('/api/login/delete-user', (req, res) => {
     /* const { username="", email="", password=""} = req.body;
     if(password == "" || username == "" || email == "") {
         return res.status(500).json({error: "all fields must be filled"}); 
     } */
+    if(loggedInUser == null) {
+        return res.status(500).json({error: "No user signed in"}); 
+    }
+
     let query = "DELETE FROM user WHERE id = ?";
-    db.run(query, signedInUser, function (err) {
+    db.run(query, loggedInUser, function (err) {
         if (err) return res.status(500).json({ error: err.message });
-        signedInUser = null;
+        loggedInUser = null;
         res.json({ message: 'Record deleted successfully' }); //NOTE: Currently returns success even if the id didn't exist before
     });
 });
