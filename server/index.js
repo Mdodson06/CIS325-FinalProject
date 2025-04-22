@@ -94,11 +94,14 @@ app.get('/api/login/verify', (req, res) => {
 //Logs user in
 //NOTE: Very similar to /verify, only change is that actually signs them in
 //Possibly can combine, but believe verify will be needed beyond logging in so separated
+// 04/20/2025 changed body to query as GET won't allow body when not in the postman test for some reason??????? 
+//Looked it up and something about not best practice but I don't get why and can't find what REST endpoint is best practice instead 
+//So just taking the security hit of it being in the url for this project
 app.get('/api/login/loginAttempt', (req, res) => {
     console.log("~~~");
-    console.log(req.body);
+    console.log(req.query);
     console.log("Logged in? " + loggedInUser);
-    const { username="", email="", password="" } = req.body || ""; //NOTE: || "" prevents errors if the body isn't provided at all
+    const { username="", email="", password="" } = req.query || ""; //NOTE: || "" prevents errors if the body isn't provided at all
     //If password not provided or neither username nor email provided
     //Should be handled client-side but just in case
     if(password == "" || 
@@ -120,7 +123,7 @@ app.get('/api/login/loginAttempt', (req, res) => {
         if(rows.length == 1) {
             loggedInUser = rows[0].id;
             console.log("Logged in ID: " + loggedInUser);
-            return res.json({"entry":"pass", "message" : "Welcome " + rows[0].username + "!"}); //TODO: just return the username?
+            return res.json({"entry":"pass", "message" : rows[0].username}); //TODO: just return the username?
         } else if(rows.length == 0) {
             return res.json({"entry" : "denied"});
         } else {
@@ -183,17 +186,20 @@ app.put('/api/login/update', (req, res) => {
     });
 });
 
-app.post('/api/login/sign-up', (req, res) => {
+app.post('/api/login/signup', (req, res) => {
     console.log(req.body);
     const { username="", email="", password=""} = req.body;
     if(password == "" || username == "" || email == "") {
         return res.status(500).json({error: "all fields must be filled"}); 
     }
     let query = "INSERT INTO user (username, email, password) VALUES(?, ?, ?)";
+    console.log(query);
+    console.log([username, email, password]);
     db.run(query, [username, email, password], function (err) { if (err) return res.status(500).json({ error: err.message }); 
     loggedInUser = this.lastID;
     res.json({ entry: "pass" });
     });
+//    res.json({entry:"testing"});
 });
 
 //NOTE: only need app.something if navigating backend which we shouldn't
@@ -237,7 +243,7 @@ app.get('/api/creation', (req, res) => {
     {
         return res.status(500).json({error: "invalid table: " + tableName})
     }
-
+    console.log("tableName: " + tableName);
     let query = "";
     switch(tableName) {
         case "character":
@@ -480,7 +486,7 @@ app.post('/api/creation/:tableName/', (req, res) => {
         return res.status(500).json({error: "not a valid table: " + tableName});
     } else if (tableName == "character") {
         //Assign and check if there are undefined variables
-        let {name, age, pronouns, gender, sexuality, race, backstory, colorPallete, worldID} = req.body || null; //"NA"; fixes error if use form-data but returns undefined not "NA" (didn't check with null)
+        let {name, age, pronouns, gender, sexuality, race, backstory, colorPallete, worldID} = req.body || ""; //"NA"; fixes error if use form-data but returns undefined not "NA" (didn't check with null)
         if(name === undefined || age === undefined || pronouns === undefined || 
             gender === undefined || sexuality === undefined || race === undefined || 
             backstory === undefined || colorPallete === undefined || worldID === undefined) {
@@ -538,16 +544,16 @@ app.post('/api/creation/:tableName/', (req, res) => {
 //TODO: Handle if id is not properly provided
 //Oh wait okay I think postman takes it as literally ":id" if a value isn't provided; shouldn't cause issues when I actually call if it's properly handled client-side 
 app.put('/api/creation/:tableName/:id', (req, res) => {
-    const tableName = req.params.tableName;
-    const id = req.params.id; // || -1 doesn't work; 
+    const tableName = req.params.tableName || "";
+    const id = req.params.id || -1; //doesn't work; 
     let fields = [];
     let values = [];
     //let name = req.body.name || "ERROR";
-    if(!(tableName == "character" || tableName == "world")) {
+    if(!(tableName == "character" || tableName == "world") || id == -1) {
         return res.status(500).json({error: "invalid table or id {tableName=" + tableName + ", id=" + id + "}"})
     } else if (tableName == "character") {
         //Assign and check for empty variables
-        let {name, age, pronouns, gender, sexuality, race, backstory, colorPallete, worldID} = req.body || null; 
+        let {name, age, pronouns, gender, sexuality, race, backstory, colorPallete, worldID} = req.body || ""; 
 
         //character name should be ensured client-side, but backup check server-side as well
         if(name == "") name = "untitled";
