@@ -37,6 +37,10 @@ db.run(`
     );
 `);
 
+//(outside of scope, push to next update)
+    //TODO: Add user id fk and ON DELETE CASCADE for both 
+    //TODO: Add an ID for the user to select by so not passing actual id for security but can still have multiple characters/worlds with the exact same info (AUs)
+//TODO: Delete tables to update the info on the server 
 db.run(`
 CREATE TABLE IF NOT EXISTS world (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,7 +48,7 @@ CREATE TABLE IF NOT EXISTS world (
     landscape LONGTEXT,
     landmarks MEDIUMTEXT, 
     colorPallete TEXT,
-    backstory LONGTEXT
+    backstory LONGTEXT    
 );
 `);
 db.run(`
@@ -59,7 +63,7 @@ CREATE TABLE IF NOT EXISTS character (
     backstory LONGTEXT,
     colorPallete TEXT,
     worldID INT,
-    FOREIGN KEY(worldID) REFERENCES world(id)
+    FOREIGN KEY(worldID) REFERENCES world(id) ON DELETE SET NULL
 );
 `);
 
@@ -134,18 +138,23 @@ app.get('/api/login/loginAttempt', (req, res) => {
 
 //Updates to specified information
 app.put('/api/login/update', (req, res) => {
-    const { username="", email="", newPassword=""} = req.body;
-    if(loggedInUser==null || oldPassword == "") {
-        return res.status(500).json({error: "User not logged in or old password not provided"}) 
+    const { username="", email="", newPassword="", oldPassword=""} = req.body;
+    if(loggedInUser==null) {
+        return res.status(500).json({error:"User not logged in"})
+    } else if(oldPassword == "") {
+        return res.status(500).json({error: "old password not provided"}) 
+    } else if(username=="" && email=="" && newPassword=="") {
+        return res.status(200).json({message:"No updates to make"})
     }
-    
     let query = "SELECT password FROM user WHERE id=?";
-    //db.exec()
-    let result = false; 
-    db.run(query,loggedInUser, function (err, row) {
+    db.all(query, [loggedInUser],function (err, row) {
         if (err) return res.status(500).json({ error: err.message }); 
+        console.log("ROWS: " + row.length);
+        if(row.length == 0) {
+            return res.json({message:"ID not found"})
+        }
         else if (row[0].password != oldPassword) {
-            return res.json({entry:"denied"});
+            return res.json({message:"denied"});
         }
     });
     
@@ -178,6 +187,11 @@ app.put('/api/login/update', (req, res) => {
         }
     }
     query += " WHERE id = ?"; //NOTE: doesn't properly stop from responding successful if id doesn't exist in the table
+
+    if(loggedInUser!=null) {
+        console.log("POST ID: " + loggedInUser);
+        console.log("QUERY: " + query);
+    }
     
     //UNIQUE check handled by sql error
     db.run(query, values, function (err) { if (err) return res.status(500).json({ error: err.message }); 
@@ -205,6 +219,7 @@ app.post('/api/login/signup', (req, res) => {
 //NOTE: only need app.something if navigating backend which we shouldn't
 //Handle shifting to a logout screen on the frontend
 app.post('/api/login/logout/', (req, res) => {
+    console.log("API called");
     if(loggedInUser == null) {
         return res.status(500).json({ error: "No user logged in" });
     } else {
@@ -213,7 +228,7 @@ app.post('/api/login/logout/', (req, res) => {
     }
 });
 
-app.delete('/api/login/delete-user', (req, res) => {
+app.delete('/api/login/deleteUser', (req, res) => {
     /* const { username="", email="", password=""} = req.body;
     if(password == "" || username == "" || email == "") {
         return res.status(500).json({error: "all fields must be filled"}); 
@@ -223,6 +238,7 @@ app.delete('/api/login/delete-user', (req, res) => {
     }
 
     let query = "DELETE FROM user WHERE id = ?";
+    //TODO: Delete all character/world where id=?
     db.run(query, loggedInUser, function (err) {
         if (err) return res.status(500).json({ error: err.message });
         loggedInUser = null;
@@ -247,21 +263,21 @@ app.get('/api/creation', (req, res) => {
     let query = "";
     switch(tableName) {
         case "character":
-            query += `SELECT character.name, 'character' AS type FROM character`;
+            query += `SELECT character.id, character.name, 'character' AS type FROM character`;
             query += ` WHERE character.name LIKE "%`;
             query += name +`%"`;
             break;
         case "world":
-            query += `SELECT world.name, 'world' AS type FROM world`;
+            query += `SELECT world.id, world.name, 'world' AS type FROM world`;
             query += ` WHERE world.name LIKE "%`;
             query += name +`%"`;
             break;
         case "all":
-            query += `SELECT character.name, 'character' AS type FROM character`;
+            query += `SELECT character.id, character.name, 'character' AS type FROM character`;
             query += ` WHERE character.name LIKE "%`;
             query += name +`%"`;
             query += ` UNION ALL 
-            SELECT world.name, 'world' AS type FROM world`;
+            SELECT world.id, world.name, 'world' AS type FROM world`;
             query += ` WHERE world.name LIKE "%`;
             query += name +`%"`;
     }
@@ -345,7 +361,7 @@ app.get('/api/creation/advanced', (req, res) => {
     let query = "";
     switch (tableName) {
         case "character":
-            query = `SELECT character.name,character.age,character.pronouns,character.gender, character.sexuality, character.race, character.backstory,character.colorPallete, world.name AS "world" 
+            query = `SELECT character.id, character.name,character.age,character.pronouns,character.gender, character.sexuality, character.race, character.backstory,character.colorPallete, world.name AS "world" 
                     FROM character
                     LEFT JOIN world
                     ON character.worldID=world.id WHERE `;
@@ -375,7 +391,7 @@ app.get('/api/creation/advanced', (req, res) => {
             }
             break;
         case "world":
-            query += `SELECT world.name, world.landscape, world.landmarks, world.colorPallete 
+            query += `SELECT world.id, world.name, world.landscape, world.landmarks, world.colorPallete 
                         FROM world 
                         WHERE `;
             if(anyField === undefined && worldName === undefined && fields.length == 0) { //if no specifications (to make WHEREs easier) (worldName shouldn't be defined for a world but to prevent worse errors)
@@ -667,6 +683,7 @@ app.put('/api/creation/:tableName/:id', (req, res) => {
 //TODO: Handle client-side check if the character/world exists (too complicated to have custom error here)
 //deletes all data for the given ID
 app.delete('/api/creation/:tableName/:id', (req, res) => {
+    console.log("DELETE called");
     const { tableName, id } = req.params;
     if(!((tableName == "character") || 
         (tableName == "world"))) 
