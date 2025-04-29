@@ -560,6 +560,7 @@ app.post('/api/creation/:tableName/', (req, res) => {
 //TODO: Handle if id is not properly provided
 //Oh wait okay I think postman takes it as literally ":id" if a value isn't provided; shouldn't cause issues when I actually call if it's properly handled client-side 
 app.put('/api/creation/:tableName/:id', (req, res) => {
+    console.log("IN UPDATE API");
     const tableName = req.params.tableName || "";
     const id = req.params.id || -1; //doesn't work; 
     let fields = [];

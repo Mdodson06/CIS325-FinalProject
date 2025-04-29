@@ -192,40 +192,191 @@ function Internal() {
         }).catch(error => {/* alert("Second error: "); */ alert(error)});
       }
   
-    /* async function updateField(fieldID) {
-      let tableID = -1;
-      if(fieldID < 0) { 
-        alert("Invalid row");
+    async function getWorldID(worldName){
+      //alert("getWorldID called: " + worldName);
+      let urlSubstring = "";
+      if(worldName == -1) {
+        //alert(`worldName: -1 (${tableType})`);
+        urlSubstring = `tableName=${tableType}&name=${worldName}`;
+      } else {
+        urlSubstring = `tableName=world&name=${worldName}`;
       }
-      try {
-        tableID = ids.at(fieldID);
-      } catch (error) {
-        alert("Invalid row");
+      const url = `http://localhost:8080/api/creation/verify?${urlSubstring}`;
+      //alert(url);
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+        'Content-Type': 'application/json'
+        },
+      })
+      .then(result => result.json())
+      .then(json => {
+        //alert("MESSAGE RESPONSE: " + JSON.stringify(json));
+        if(json.length > 1 || json.length < 1) {
+          return -1;
+        }
+        const entry = json[0].id;
+        //alert("MESSAGE ID: " + entry);
+        return entry;
+      })
+      .catch(error => {
+        //alert("WORLD ID: " + error);
+      });
+      //alert("WORLD ID AFTER FIRST: " + response);
+      return response;
+    }
+
+    async function newField(){
+      //alert("Called newField");
+    var formData = new FormData(document.getElementById('advancedSearchForm'));
+    //alert(JSON.stringify(urlData));
+    //var urlParams = new URLSearchParams(urlData);
+
+    //TODO: Temporary until colorPallete added
+    formData.append("colorPallete","");
+    //TODO: Temp until verify worldID 
+    if(tableType == "character") {
+      if(formData.get("worldName") != "") {
+        const worldID = await getWorldID(formData.get("worldName"))
+        .then(value => 
+          {
+            //alert("Done");
+            if (value == undefined || value == -1) {
+              alert("ERROR: worldID is " + value); //TODO: Replace with notif that there's more than one of that name 
+              return -1;
+            }
+            else {
+              //alert("Else: " + value);
+              return value;
+            }
+          });
+        //alert("WORLD ID: " + worldID);
+        if(worldID == undefined || worldID == -1) return;
+        else formData.append("worldID",worldID);
+        } else (formData.append("worldID", ""))
+        formData.delete("worldName");
+    }
+    
+    
+    //formData.append("worldID","");
+    var urlData = Object.fromEntries(formData);
+
+    if(formData.get('name').length <= 0) {
+      alert("Name must be provided");
+      return;
+    } else {
+      const url = `http://localhost:8080/api/creation/${tableType}`;
+      //alert(url);
+      //alert(JSON.stringify(urlData));
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+        'Content-Type': 'application/json'
+        },
+        body:JSON.stringify(urlData)
+      })
+      .catch(error => {
+        alert(error);
+      });   
+      const result = await response.json();
+      if(result.message != undefined) {
+        alert("Success: " + result.message);
+      } else {
+        alert("Failure: " + (result.error || "Unknown"));
+      }
+    }
+    }
+
+    async function updateField() {
+    //alert("called updateField");
+    var formData = new FormData(document.getElementById('advancedSearchForm'));
+    //alert("formData got: " + formData.get('name'));
+    
+    //TODO: check if ID accurate
+    //Nvm it'll do it itself 
+    /* const realID = await getWorldID(-1)
+    .then(value => 
+      {
+        alert("Done");
+        if (value == undefined || value == -1) {
+          alert("ERROR: realID is " + value); //TODO: Replace with notif that there's more than one of that name 
+          return -1;
+        }
+        else {
+          alert("Else: " + value);
+          return value;
+        }
+      });
+    if(realID == -1) return;  */
+    
+    //check worldName
+    //TODO: Temporary until colorPallete added
+
+    formData.append("colorPallete","");
+    
+    if(formData.get("worldName") != "") {
+    const worldID = await getWorldID(formData.get("worldName"))
+    .then(value => 
+      {
+        //alert("Done");
+        if (value == undefined || value == -1) {
+          alert("ERROR: worldID is " + value); //TODO: Replace with notif that there's more than one of that name 
+          return -1;
+        }
+        else {
+          //alert("Else: " + value);
+          return value;
+        } //TODO: Some error ikd 
+      });
+    //alert("WORLD ID: " + worldID);
+
+    if(worldID == undefined || worldID == -1) {
+      alert("ERROR: World ID is: " + worldID);
+      return;
+    }
+    else formData.append('worldID',worldID);
+    } else {
+      formData.append('worldID',"");
+    }
+
+    //alert("BEFORE worldName");
+    formData.delete("worldName");
+    //alert("worldName DELETED");
+    
+    //alert("tableType: " + tableType);
+    if(tableType == "character") {
+      if(formData.get('name') == "" && formData.get('age') == "" && formData.get('pronouns') == "" && 
+      formData.get('gender') == "" && formData.get('sexuality') == "" && formData.get('race') == "" &&
+      formData.get('backstory') == "" && formData.get('worldID') == ""){
+        alert("No fields to update");
         return;
       }
-
-      alert("Called");
-    var formData = new FormData(document.getElementById('updateAccountForm'));
-    if(formData.get('oldPassword').length <= 0) {
-      alert("Previous Password Required");
+    } else if(tableType == "world") {
+      if(formData.get('name') == "" && formData.get('landscape') == "" 
+      && formData.get("landscape") == "" && formData.get('landmarks') == "" && formData.get('backstory') == "") {
+        alert("No fields to update");
+        return;
+      }
+    } else { //just in case it's set to all
       return;
     }
-    if(formData.get('username') == "" && formData.get('email') == "" && formData.get('newPassword') == "" && formData.get('confirmPassword') == ""){
-      alert("No fields to update");
+    if(isNaN(formData.get('id'))){
+      alert("Not a valid ID number");
       return;
     }
-    else if(formData.get('newPassword') != formData.get('confirmPassword')) {
-      alert("New and confirm password not equal");
-      return;
-    }
-    formData.delete('confirmPassword');
+    const realID = parseInt(formData.get('id'));
+    
     var urlData = Object.fromEntries(formData);
+    var urlParams = new URLSearchParams(urlData);
+
     //var urlParams = new URLSearchParams(urlData);
-    
-    
-    alert(JSON.stringify(urlData));
+    const url = `http://localhost:8080/api/creation/${tableType}/${realID}?${urlParams}`;
+    //alert("ABOUT TO SEND UPDATE");
+    //alert(JSON.stringify(urlData));
+    //alert(url);
+
     //alert(formData.get('oldPassword') + " is bigger than length 0");
-    const response = await fetch(`http://localhost:8080/api/creation/${urlParams}`, {
+    const response = await fetch(url, {
       method: 'PUT',
       headers: {
       'Content-Type': 'application/json'
@@ -235,36 +386,27 @@ function Internal() {
     .catch(error => {
       alert(error);
     });
-    alert("recieved");
+    //alert("recieved");
     var result = await response.json()
     .then(json => {
       //alert("Recieved response");
       const message = json.message;
       if(message != undefined) {
-        alert(message);
+        //alert("MESSAGE: " + message);
+        alert("Updated successfully!");
       } else if(json.error != undefined) {
         alert(json.error);
-        setLocked(true);
-        setPageType("login");
-        setUsername("user");
       }else {
-        alert("Message undefined but recieved");
+        //alert("Message undefined but recieved");
       }
     }).catch(error => {alert("Second error: "); alert(error)});
 
-    } */
+    //alert("UPDATE FINISHED");
+    }
     
-    async function newField(insertType){
-
-
-    }
-
-    async function updateField(){
-
-    }
 
     async function deleteField(){
-      alert("Delete field called");
+      //alert("Delete field called");
     var formData = new FormData(document.getElementById('deleteForm'));
     
     if(formData.get('confirm') != "DELETE") {
@@ -289,6 +431,7 @@ function Internal() {
       const message = json.message;
       if(message != undefined) {
         //alert(message);
+        alert("Deleted successfully!");
       } else if(json.error != undefined) {
         alert(json.error);
       }else {
@@ -455,7 +598,7 @@ function Internal() {
                   <label for="worldName">Home World: </label>
                   <input type="text" name="worldName" id="worldName"/>
               </div>             
-              { (pageType == advancedSearch) ?
+              { (pageType == "advancedSearch") ?
                 <>
                   <div class="question">
                     <label for="anyField">Any match: </label>
@@ -463,7 +606,12 @@ function Internal() {
                   </div>
                 </>
                 :
-                <></>
+                <>
+                <div class="question">
+                  <label for="backstory">Backstory: </label>
+                  <input type="text" name="backstory" id="backstory"/>
+                </div> 
+                </>
               }
               {/* <button onClick={e=>advancedSearch("character")}>Search</button> */}
               </>
@@ -482,7 +630,7 @@ function Internal() {
                   <label for="landmarks">Landmarks: </label>
                   <input type="text" name="landmarks" id="landmarks"/>
               </div>              
-              { (pageType == advancedSearch) ?
+              { (pageType == "advancedSearch") ?
                 <>
                   <div class="question">
                     <label for="anyField">Any match: </label>
@@ -490,7 +638,12 @@ function Internal() {
                   </div>
                 </>
                 :
-                <></>
+                <>
+                  <div class="question">
+                    <label for="backstory">Backstory: </label>
+                    <input type="text" name="backstory" id="backstory"/>
+                  </div> 
+                </>
               }
               {/* <button onClick={e=>advancedSearch("world")}>Search</button> */}
               </>
@@ -525,10 +678,6 @@ function Internal() {
                   <input type="text" name="worldName" id="worldName"/>
               </div>
               <div class="question">
-                  <label for="name">Name: </label>
-                  <input type="text" name="name" id="name"/>
-              </div>
-              <div class="question">
                   <label for="landscape">Landscape: </label>
                   <input type="text" name="landscape" id="landscape"/>
               </div>
@@ -549,9 +698,9 @@ function Internal() {
                   (tableType == "all") ? <button onClick={e=>advancedSearchAll()}>Search</button>
                   : <button onClick={e=>advancedSearch(tableType)}>Search</button>
                 : (pageType == "updateField") ?
-                    <>UPDATE FIELD</> 
+                    <><button onClick={e=>updateField()}>Update</button></> 
                 : (pageType == "newField") ? 
-                <>NEW FIELD</>
+                <><button onClick={e=>newField()}>Add</button></>
                 : <>ERROR</>
               }
               </>

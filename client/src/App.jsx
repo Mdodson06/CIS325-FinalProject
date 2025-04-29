@@ -19,7 +19,7 @@ function App() {
 
   
   async function attemptSignup() {
-    alert("Called Signup");
+    //alert("Called Signup");
     var formData = new FormData(document.getElementById('signupForm'));
     var urlData = Object.fromEntries(formData);
     //alert(JSON.stringify(urlData));
@@ -29,8 +29,8 @@ function App() {
       alert("All fields must be filled");
     } else {
       const url = `http://localhost:8080/api/login/signup`;
-      alert(url);
-      alert(JSON.stringify(urlData));
+      //alert(url);
+      //alert(JSON.stringify(urlData));
       const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -43,11 +43,15 @@ function App() {
       });   
       const result = await response.json();
       if(result.entry != undefined) {
-        alert("Success: " + result.entry);
+        //alert("Success: " + result.entry);
+        alert("Signed up successfully!");
         setLocked(false);
         setPageType("internal");
         setUsername(formData.get("username"));
       } else {
+        if(result.error.includes("SQLITE_CONSTRAINT: UNIQUE"))
+          alert("Username or email already taken");
+        else
         alert("Failure: " + (result.error || "Unknown"));
       }
     }
@@ -77,19 +81,21 @@ function App() {
       .then(json => {  
         //alert("Recieved response");
         const entry = json.entry;
-        alert(entry);
+        //alert(entry);
         if(entry == "pass") {
           alert("Welcome " + json.message + "!");
           setLocked(false)
           setPageType("internal");
           setUsername(json.message);
-        } 
+        } else {
+          alert("Incorrect username or password");
+        }
       }).catch(error => {alert("Second error: "); alert(error)});
     }
   }
 
   async function logout() {
-    alert("Called");
+    //alert("Called");
     const response = await fetch('http://localhost:8080/api/login/logout/', {
       method: 'POST',
       headers: {
@@ -119,7 +125,7 @@ function App() {
   }
 
   async function updateAccount() {
-    alert("Called");
+    //alert("Called");
     var formData = new FormData(document.getElementById('updateAccountForm'));
     if(formData.get('oldPassword').length <= 0) {
       alert("Previous Password Required");
@@ -138,7 +144,7 @@ function App() {
     //var urlParams = new URLSearchParams(urlData);
     
     
-    alert(JSON.stringify(urlData));
+    //alert(JSON.stringify(urlData));
     //alert(formData.get('oldPassword') + " is bigger than length 0");
     const response = await fetch('http://localhost:8080/api/login/update', {
       method: 'PUT',
@@ -150,7 +156,7 @@ function App() {
     .catch(error => {
       alert(error);
     });
-    alert("recieved");
+    //alert("recieved");
     var result = await response.json()
     .then(json => {
       //alert("Recieved response");
@@ -163,13 +169,13 @@ function App() {
         setPageType("login");
         setUsername("user");
       }else {
-        alert("Message undefined but recieved");
+        //alert("Message undefined but recieved");
       }
     }).catch(error => {alert("Second error: "); alert(error)});
 
   }
   async function deleteAccount() {
-    alert("Delete user called");
+    //alert("Delete user called");
     var formData = new FormData(document.getElementById('deleteAccountForm'));
     
     if(formData.get('confirmDelete') != "DELETE") {
@@ -186,7 +192,7 @@ function App() {
     .catch(error => {
       alert(error);
     });
-    alert("recieved");
+    //alert("recieved");
     var result = await response.json()
     .then(json => {
       //alert("Recieved response");
@@ -196,7 +202,7 @@ function App() {
       } else if(json.error != undefined) {
         alert(json.error);
       }else {
-        alert("Message undefined but recieved");
+        //alert("Message undefined but recieved");
       }
       setLocked(true);
       setPageType("login");
