@@ -1,3 +1,8 @@
+function checkingIndex() {
+    return "success";
+}
+exports.checkingIndex = checkingIndex;
+
 const express = require('express');
     const app = express();
         //Not sure if it's necessary, just copied from previous asg 
@@ -7,23 +12,23 @@ const express = require('express');
 const cors = require('cors');
     app.use(cors())
 const sqlite3 = require('sqlite3').verbose();
-
-//Where to run code
-app.listen(8080, () => { //Can do port 3000? Vite automatically runs on 5173
-    console.log('server listening on port 8080')
-})
-
+exports.app = app;
+const listener = app.listen(8080, () => { //Can do port 3000? Vite automatically runs on 5173
+    console.log('server listening on port 8080');
+    return "success";
+});
+exports.listener = listener;
 
 //main page
 //TODO: Add button to navigate to login/signup 
 app.get('/', (req, res) => {
-    res.send('Hello from our server!')
+    return res.send('Hello from our server!');
 })
-
 
 //TODO: Connect world/character to login (Add userID foreign key to both)
 //SQL-injection prevention reference: https://planetscale.com/blog/how-to-prevent-sql-injection-attacks-in-node-js
 const db = new sqlite3.Database('creation.db');
+exports.db = db;
 let loggedInUser = null; //ID of the currently signed in user
 //TODO: Remove hard coded user 
 
@@ -69,7 +74,7 @@ CREATE TABLE IF NOT EXISTS character (
 
 
 
-//Checks for the presences of a given username/email AND password
+/* //Checks for the presences of a given username/email AND password
 //returns "pass" for every "value" returned to maintain security
 app.get('/api/login/verify', (req, res) => {
     const { username="", email="", password="" } = req.body;
@@ -93,7 +98,7 @@ app.get('/api/login/verify', (req, res) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
     });
-});
+}); */
 
 //Logs user in
 //NOTE: Very similar to /verify, only change is that actually signs them in
@@ -102,9 +107,9 @@ app.get('/api/login/verify', (req, res) => {
 //Looked it up and something about not best practice but I don't get why and can't find what REST endpoint is best practice instead 
 //So just taking the security hit of it being in the url for this project
 app.get('/api/login/loginAttempt', (req, res) => {
-    console.log("~~~");
+    /* console.log("~~~");
     console.log(req.query);
-    console.log("Logged in? " + loggedInUser);
+    console.log("Logged in? " + loggedInUser); */
     const { username="", email="", password="" } = req.query || ""; //NOTE: || "" prevents errors if the body isn't provided at all
     //If password not provided or neither username nor email provided
     //Should be handled client-side but just in case
@@ -126,7 +131,7 @@ app.get('/api/login/loginAttempt', (req, res) => {
         if (err) return res.status(500).json({ error: err.message });
         if(rows.length == 1) {
             loggedInUser = rows[0].id;
-            console.log("Logged in ID: " + loggedInUser);
+            //console.log("Logged in ID: " + loggedInUser);
             return res.json({"entry":"pass", "message" : rows[0].username}); //TODO: just return the username?
         } else if(rows.length == 0) {
             return res.json({"entry" : "denied"});
@@ -201,7 +206,7 @@ app.put('/api/login/update', (req, res) => {
 });
 
 app.post('/api/login/signup', (req, res) => {
-    console.log(req.body);
+    //console.log(req.body);
     const { username="", email="", password=""} = req.body;
     if(password == "" || username == "" || email == "") {
         return res.status(500).json({error: "all fields must be filled"}); 
@@ -250,7 +255,7 @@ app.delete('/api/login/deleteUser', (req, res) => {
 //MAIN SITE
 //get 
 
-//SQL query displaying name of (all) characters and/or worlds (and the type if both)
+//SQL query displaying name of (all) characters and/or worlds and type 
 app.get('/api/creation', (req, res) => {
     const { tableName, name=""} = req.query;// || ""; //if tableName not included in the query or tableName is undefined
     if(!((tableName == "all") ||
@@ -289,7 +294,8 @@ app.get('/api/creation', (req, res) => {
         });
 });
 
-//Gets the id of all matching
+//NOTE: For future sprints, not currently in use 
+/* //Gets the id of all matching
 //Used for checking before inserting/deleting
 //TODO: Update with any other exact specification things found to be needed after starting client-side
 app.get('/api/creation/verify', (req, res) => {
@@ -308,7 +314,7 @@ app.get('/api/creation/verify', (req, res) => {
             res.json(rows);
             });
 
-});
+}); */
 
 //Gets advanced search
 //TODO: Handle combining character and world search on client-side
@@ -423,6 +429,7 @@ app.get('/api/creation/advanced', (req, res) => {
         });
 });
 
+/* NOTE: For future sprints, not currently in use
 //SQL query displaying all info of a specific character or world (by id)
 //Currently no reason to select all info of all characters/worlds (separate, can't do union without complications)
 //But present, just commented out
@@ -468,7 +475,7 @@ app.get('/api/creation/:tableName', (req, res) => {
             if (err) return res.status(500).json({ error: err.message });
             res.json(rows);
             });
-    } else { */
+    } else { * /
         db.all(query, id, (err, rows) => {
             if (err) return res.status(500).json({ error: err.message });
             res.json(rows);
@@ -488,13 +495,11 @@ app.get('/api/creation/world/:id/', (req, res) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
         });
-});
+}); */
 //TODO: GET a world/character by name to help users who may accidentally try to make a new when they want to update
 
 
 //post
-//Using x-www-form-urlencoded, NOT form-data (throws error that the post parameters (not what's given, what is checked, like name not nameTest) don't exist)
-    //Updated note: Seems to actually have to do with the way postman handles things on their side? 
 //SQL query to insert the (verified) form data into the (param) table  
 app.post('/api/creation/:tableName/', (req, res) => {
     const {tableName} = req.params;
@@ -568,96 +573,105 @@ app.put('/api/creation/:tableName/:id', (req, res) => {
     //let name = req.body.name || "ERROR";
     if(!(tableName == "character" || tableName == "world") || id == -1) {
         return res.status(500).json({error: "invalid table or id {tableName=" + tableName + ", id=" + id + "}"})
-    } else if (tableName == "character") {
-        //Assign and check for empty variables
-        let {name, age, pronouns, gender, sexuality, race, backstory, colorPallete, worldID} = req.body || ""; 
-
-        //character name should be ensured client-side, but backup check server-side as well
-        if(name == "") name = "untitled";
-        if(age == "") age = null;//**NEEDS to be set, other okay to be empty string 
-        if(pronouns == "") pronouns = null;
-        if(gender == "") gender = null;
-        if(sexuality == "") sexuality = null;
-        if(race == "") race = null;
-        if(backstory == "") backstory = null;
-        if(colorPallete == "") colorPallete = null; //Probably needs to be set?
-        if(worldID == "") worldID = null;//**NEEDS to be set, other okay to be empty string
-        
-        //only query the fields that they want to update
-        if(!(name === undefined)) {
-            fields.push("name");
-            values.push(name);
-        }
-        if(!(age === undefined)) {
-            fields.push("age");
-            values.push(age);
-        }
-        if(!(pronouns === undefined)) {
-            fields.push("pronouns");
-            values.push(pronouns);
-        }
-        if(!(gender === undefined)) {
-            fields.push("gender");
-            values.push(gender);
-        }
-        if(!(sexuality === undefined)) {
-            fields.push("sexuality");
-            values.push(sexuality);
-        }
-        if(!(race === undefined)) {
-            fields.push("race");
-            values.push(race);
-        }
-        if(!(backstory === undefined)) {
-            fields.push("backstory");
-            values.push(backstory);
-        }
-        if(!(colorPallete === undefined)) {
-            fields.push("colorPallete");
-            values.push(colorPallete);
-        }
-        if(!(worldID === undefined)) {
-            fields.push("worldID");
-            values.push(worldID);
-        }        
     } else {
-        let {name, landscape, landmarks, colorPallete, backstory} = req.body;
-        
-        //world name should be ensured client-side, but backup check server-side as well
-        if(name == "") name = "untitled";
-        if(landscape == "") landscape = null;
-        if(landmarks == "") landmarks = null;
-        if(backstory == "") backstory = null;
-        if(colorPallete == "") colorPallete = null; //Probably needs to be set?
-        let result = "\n - Name: " + name + "\n - landscape: " + landscape + "\n - landmarks: " + landmarks + "\n - colorPallete: " + colorPallete + "\n - Backstory: " + backstory;
-        res.send("World variables: " + result);
+        //check for id
+        let query = "SELECT id FROM " + tableName + " WHERE id=?;";
+        db.all(query, [id], function (err, rows) {
+            if (err) return res.status(500).json({ error: err.message });
+            if(rows.length !=1) {
+                if(rows.length > 1) return res.status(500).json({error: 'multiple matching ids'});
+                else return res.json({message: 'No such id'});
+            }
+        });
+
+        //start updates
+        if (tableName == "character") {
+            //Assign and check for empty variables
+            let {name, age, pronouns, gender, sexuality, race, backstory, colorPallete, worldID} = req.body || ""; 
+
+            //character name should be ensured client-side, but backup check server-side as well
+            if(name == "") name = "untitled";
+            if(age == "") age = null;//**NEEDS to be set, other okay to be empty string 
+            if(pronouns == "") pronouns = null;
+            if(gender == "") gender = null;
+            if(sexuality == "") sexuality = null;
+            if(race == "") race = null;
+            if(backstory == "") backstory = null;
+            if(colorPallete == "") colorPallete = null; //Probably needs to be set?
+            if(worldID == "") worldID = null;//**NEEDS to be set, other okay to be empty string
+            
+            //only query the fields that they want to update
+            if(!(name === undefined)) {
+                fields.push("name");
+                values.push(name);
+            }
+            if(!(age === undefined)) {
+                fields.push("age");
+                values.push(age);
+            }
+            if(!(pronouns === undefined)) {
+                fields.push("pronouns");
+                values.push(pronouns);
+            }
+            if(!(gender === undefined)) {
+                fields.push("gender");
+                values.push(gender);
+            }
+            if(!(sexuality === undefined)) {
+                fields.push("sexuality");
+                values.push(sexuality);
+            }
+            if(!(race === undefined)) {
+                fields.push("race");
+                values.push(race);
+            }
+            if(!(backstory === undefined)) {
+                fields.push("backstory");
+                values.push(backstory);
+            }
+            if(!(colorPallete === undefined)) {
+                fields.push("colorPallete");
+                values.push(colorPallete);
+            }
+            if(!(worldID === undefined)) {
+                fields.push("worldID");
+                values.push(worldID);
+            }        
+        } else {
+            let {name, landscape, landmarks, colorPallete, backstory} = req.body;
+            
+            //world name should be ensured client-side, but backup check server-side as well
+            if(name == "") name = "untitled";
+            if(landscape == "") landscape = null;
+            if(landmarks == "") landmarks = null;
+            if(backstory == "") backstory = null;
+            if(colorPallete == "") colorPallete = null; //Probably needs to be set?
+            //let result = "\n - Name: " + name + "\n - landscape: " + landscape + "\n - landmarks: " + landmarks + "\n - colorPallete: " + colorPallete + "\n - Backstory: " + backstory;
+            //res.send("World variables: " + result);
 
 
-        //only query the fields that they want to update
-        if(!(name === undefined)) {
-            fields.push("name");
-            values.push(name);
+            //only query the fields that they want to update
+            if(!(name === undefined)) {
+                fields.push("name");
+                values.push(name);
+            }
+            if(!(landscape === undefined)) {
+                fields.push("landscape");
+                values.push(landscape);
+            }
+            if(!(landmarks === undefined)) {
+                fields.push("landmarks");
+                values.push(landmarks);
+            }
+            if(!(colorPallete === undefined)) {
+                fields.push("colorPallete");
+                values.push(colorPallete);
+            }
+            if(!(backstory === undefined)) {
+                fields.push("backstory");
+                values.push(backstory);
+            }
         }
-        if(!(landscape === undefined)) {
-            fields.push("landscape");
-            values.push(landscape);
-        }
-        if(!(landmarks === undefined)) {
-            fields.push("landmarks");
-            values.push(landmarks);
-        }
-        if(!(colorPallete === undefined)) {
-            fields.push("colorPallete");
-            values.push(colorPallete);
-        }
-        if(!(backstory === undefined)) {
-            fields.push("backstory");
-            values.push(backstory);
-        }
-
-        /* const query = ` INSERT INTO world (name, landscape, landmarks, backstory, colorPallete) VALUES (?, ?, ?, ?, ?) `;
-        db.run(query, [name, landscape, landmarks, backstory, colorPallete], function (err) { if (err) return res.status(500).json({ error: err.message }); res.json({ message: "\"" + name + "\" saved successfully!" });
-        });  */
     }
     values.push(id);
     let query = "UPDATE character SET ";
@@ -672,7 +686,7 @@ app.put('/api/creation/:tableName/:id', (req, res) => {
     query += " WHERE id = ?"
     db.run(query, values, function (err) { if (err) return res.status(500).json({ error: err.message }); 
     //res.json({ message: "\"" + name + "\" saved successfully!" });
-    res.json({ message: tableName + " saved successfully!" });
+    return res.json({ message: tableName + " saved successfully!" });
     });
 });
 
@@ -691,26 +705,20 @@ app.delete('/api/creation/:tableName/:id', (req, res) => {
     {
         return res.status(500).json({error: "invalid table or id {tableName=" + tableName + ", id=" + id + "}"})
     }
-
-    /* 
-    //Failed attempt at check first
-    query = "SELECT id FROM " + tableName + " WHERE id=?;"
-    db.run(query, id, function (err, rows) {
+ 
+    let query = "SELECT id FROM " + tableName + " WHERE id=?;";
+    db.all(query, [id], function (err, rows) {
         if (err) return res.status(500).json({ error: err.message });
-        //res.json({ message: 'Record deleted successfully' });
-        const check = 2;
-        if(check === undefined) {
-            console.log("ID does not exist: " + id);
-            return res.json({ message: tableName + " does not exist so cannot be deleted" });
-        } else {
-
+        if(rows.length !=1) {
+            if(rows.length > 1) return res.status(500).json({error: 'multiple matching ids'});
+            else return res.json({message: 'No such id'});
         }
-    }); */
-    
+    });
+     
     //Actually delete
-    let query = "DELETE FROM "  + tableName + " WHERE id = ?";
+    query = "DELETE FROM "  + tableName + " WHERE id = ?";
     db.run(query, id, function (err) {
     if (err) return res.status(500).json({ error: err.message });
-    res.json({ message: 'Record deleted successfully' });
+    return res.json({ message: 'Record deleted successfully' });
     });
   });

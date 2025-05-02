@@ -1,10 +1,16 @@
 {
   "devDependencies": {
-    "concurrently": "^9.1.2"
-  }, 
+    "concurrently": "^9.1.2",
+    "jest": "^29.7.0",
+    "supertest": "^7.1.0"
+  },
   "scripts": {
-  "start": "concurrently \"npm run start:client\" \"npm run start:server\"",
-  "start:client": "cd client && npm run dev",
-  "start:server": "cd server && nodemon index.js"
+    "start": "concurrently \"npm run start:client\" \"npm run start:server\"",
+    "start:client": "cd client && npm run dev",
+    "start:server": "cd server && nodemon index.js",
+    "test": "jest --detectOpenHandles -b"
+  },
+  "dependencies": {
+    "sqlite3": "^5.1.7"
   }
 }
