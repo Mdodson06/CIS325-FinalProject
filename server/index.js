@@ -140,69 +140,90 @@ app.get('/api/login/loginAttempt', (req, res) => {
         }
     });
 });
-
+//TODO: Middleware for loggedInUser? 
 //Updates to specified information
+async function loginUpdateHelp(query, oldPassword) {
+    const result = new Promise((resolve,reject) => {
+        console.log("in promise");
+        db.all(query, [loggedInUser],function (err, row) {
+            if (err) {throw (err)}; 
+            console.log("ROWS: " + row.length);
+            if(row.length == 0) reject("ID not found");
+            else if (row[0].password != oldPassword) {
+                console.log("Inequal passwords"); 
+                reject("Incorrect old password");
+            }
+            else {
+                console.log("Valid password");
+                resolve("pass");
+            }
+        });
+    });
+    console.log("loginUpdateHelp done");
+    return result;
+}
 app.put('/api/login/update', (req, res) => {
+    console.log("~~~~");
     const { username="", email="", newPassword="", oldPassword=""} = req.body;
     if(loggedInUser==null) {
-        return res.status(500).json({error:"User not logged in"})
+        return res.status(500).json({error:"User not logged in"});
     } else if(oldPassword == "") {
-        return res.status(500).json({error: "old password not provided"}) 
+        return res.status(500).json({error: "old password not provided"});
     } else if(username=="" && email=="" && newPassword=="") {
-        return res.status(200).json({message:"No updates to make"})
+        return res.status(200).json({message:"No updates to make"});
+    } else {
+        let query = "SELECT password FROM user WHERE id=?";
+        loginUpdateHelp(query,oldPassword)
+        .then((() => {
+            console.log("VALID PASSWORD: " + oldPassword);
+        
+            fields = [];
+            values = [];
+            
+            query = "UPDATE user SET ";
+            
+            //verify which ones (doesn't allow empty strings)
+            if(username != "") {
+                fields.push("username");
+                values.push(username);
+            }
+            if(email != "") {
+                fields.push("email");
+                values.push(email);
+            }
+            if(newPassword != "") { //Already checked that oldPassword != ""
+                fields.push("password"); //newPassword saved under password column 
+                values.push(newPassword);
+            }
+            values.push(loggedInUser);
+            //let result = "";
+            for (let i = 0; i < fields.length; i++) {
+                //result += "\n - " + fields[i] + ": " + values[i];
+                query += fields[i] + " = ?"
+                if (i != (fields.length-1)) {
+                    query += ", "
+                }
+            }
+            query += " WHERE id = ?"; //NOTE: doesn't properly stop from responding successful if id doesn't exist in the table
+        
+            if(loggedInUser!=null) {
+                console.log("POST ID: " + loggedInUser);
+                console.log("QUERY: " + query);
+            }
+            
+            //UNIQUE check handled by sql error
+            db.run(query, values, function (err) { if (err) return res.status(500).json({ error: err.message }); 
+            //res.json({ message: "\"" + name + "\" saved successfully!" });
+            return res.json({ message: "user info updated successfully!" });
+            });
+        }),
+        ((reject) => {
+            return res.json({message:reject});
+        })
+        ).catch(reject => {
+            return res.json({error:reject});
+        });
     }
-    let query = "SELECT password FROM user WHERE id=?";
-    db.all(query, [loggedInUser],function (err, row) {
-        if (err) return res.status(500).json({ error: err.message }); 
-        console.log("ROWS: " + row.length);
-        if(row.length == 0) {
-            return res.json({message:"ID not found"})
-        }
-        else if (row[0].password != oldPassword) {
-            return res.json({message:"denied"});
-        }
-    });
-    
-    
-    fields = [];
-    values = [];
-    
-    query = "UPDATE user SET ";
-    
-    //verify which ones (doesn't allow empty strings)
-    if(username != "") {
-        fields.push("username");
-        values.push(username);
-    }
-    if(email != "") {
-        fields.push("email");
-        values.push(email);
-    }
-    if(newPassword != "") { //Already checked that oldPassword != ""
-        fields.push("password"); //newPassword saved under password column 
-        values.push(newPassword);
-    }
-    values.push(loggedInUser);
-    //let result = "";
-    for (let i = 0; i < fields.length; i++) {
-        //result += "\n - " + fields[i] + ": " + values[i];
-        query += fields[i] + " = ?"
-        if (i != (fields.length-1)) {
-            query += ", "
-        }
-    }
-    query += " WHERE id = ?"; //NOTE: doesn't properly stop from responding successful if id doesn't exist in the table
-
-    if(loggedInUser!=null) {
-        console.log("POST ID: " + loggedInUser);
-        console.log("QUERY: " + query);
-    }
-    
-    //UNIQUE check handled by sql error
-    db.run(query, values, function (err) { if (err) return res.status(500).json({ error: err.message }); 
-    //res.json({ message: "\"" + name + "\" saved successfully!" });
-    res.json({ message: "user info updated successfully!" });
-    });
 });
 
 app.post('/api/login/signup', (req, res) => {
@@ -295,7 +316,7 @@ app.get('/api/creation', (req, res) => {
 });
 
 //NOTE: For future sprints, not currently in use 
-/* //Gets the id of all matching
+//Gets the id of all matching
 //Used for checking before inserting/deleting
 //TODO: Update with any other exact specification things found to be needed after starting client-side
 app.get('/api/creation/verify', (req, res) => {
@@ -314,7 +335,7 @@ app.get('/api/creation/verify', (req, res) => {
             res.json(rows);
             });
 
-}); */
+});
 
 //Gets advanced search
 //TODO: Handle combining character and world search on client-side
@@ -558,6 +579,29 @@ app.post('/api/creation/:tableName/', (req, res) => {
   });
 
 //update
+async function creationUpdateHelp(query, id) {
+    console.log("Start promise: " + query);
+    const result = new Promise((resolve,reject) => {
+        console.log("in promise");
+        db.all(query, [id], function (err, rows) {
+            //console.log("ran check: " + rows);
+            if (err) {throw (err)};
+            if(rows.length !=1) {
+                console.log("rejecting update");
+                if(rows.length > 1) reject('multiple matching ids');
+                else reject ('No such id');
+            }
+            else {
+                console.log("Update passed");
+                resolve("pass");
+            }
+        });
+    });
+    console.log("finished promise");
+    return result;
+}
+
+
 
 //Client-side, pass empty string to change a value to null
 //Don't call the key if you don't want to change 
@@ -565,7 +609,7 @@ app.post('/api/creation/:tableName/', (req, res) => {
 //TODO: Handle if id is not properly provided
 //Oh wait okay I think postman takes it as literally ":id" if a value isn't provided; shouldn't cause issues when I actually call if it's properly handled client-side 
 app.put('/api/creation/:tableName/:id', (req, res) => {
-    console.log("IN UPDATE API");
+    console.log("~~~~~\nIN UPDATE API");
     const tableName = req.params.tableName || "";
     const id = req.params.id || -1; //doesn't work; 
     let fields = [];
@@ -576,122 +620,151 @@ app.put('/api/creation/:tableName/:id', (req, res) => {
     } else {
         //check for id
         let query = "SELECT id FROM " + tableName + " WHERE id=?;";
-        db.all(query, [id], function (err, rows) {
-            if (err) return res.status(500).json({ error: err.message });
-            if(rows.length !=1) {
-                if(rows.length > 1) return res.status(500).json({error: 'multiple matching ids'});
-                else return res.json({message: 'No such id'});
+        
+
+        creationUpdateHelp(query,id)
+        .then((resolve => {
+            console.log("Accept: " + resolve);
+                //start updates
+                if (tableName == "character") {
+                    //Assign and check for empty variables
+                    let {name, age, pronouns, gender, sexuality, race, backstory, colorPallete, worldID} = req.body || ""; 
+
+                    //character name should be ensured client-side, but backup check server-side as well
+                    if(name == "") name = "untitled";
+                    if(age == "") age = null;//**NEEDS to be set, other okay to be empty string 
+                    if(pronouns == "") pronouns = null;
+                    if(gender == "") gender = null;
+                    if(sexuality == "") sexuality = null;
+                    if(race == "") race = null;
+                    if(backstory == "") backstory = null;
+                    if(colorPallete == "") colorPallete = null; //Probably needs to be set?
+                    if(worldID == "") worldID = null;//**NEEDS to be set, other okay to be empty string
+                    
+                    //only query the fields that they want to update
+                    if(!(name === undefined)) {
+                        fields.push("name");
+                        values.push(name);
+                    }
+                    if(!(age === undefined)) {
+                        fields.push("age");
+                        values.push(age);
+                    }
+                    if(!(pronouns === undefined)) {
+                        fields.push("pronouns");
+                        values.push(pronouns);
+                    }
+                    if(!(gender === undefined)) {
+                        fields.push("gender");
+                        values.push(gender);
+                    }
+                    if(!(sexuality === undefined)) {
+                        fields.push("sexuality");
+                        values.push(sexuality);
+                    }
+                    if(!(race === undefined)) {
+                        fields.push("race");
+                        values.push(race);
+                    }
+                    if(!(backstory === undefined)) {
+                        fields.push("backstory");
+                        values.push(backstory);
+                    }
+                    if(!(colorPallete === undefined)) {
+                        fields.push("colorPallete");
+                        values.push(colorPallete);
+                    }
+                    if(!(worldID === undefined)) {
+                        fields.push("worldID");
+                        values.push(worldID);
+                    }        
+                } else {
+                    let {name, landscape, landmarks, colorPallete, backstory} = req.body;
+                    
+                    //world name should be ensured client-side, but backup check server-side as well
+                    if(name == "") name = "untitled";
+                    if(landscape == "") landscape = null;
+                    if(landmarks == "") landmarks = null;
+                    if(backstory == "") backstory = null;
+                    if(colorPallete == "") colorPallete = null; //Probably needs to be set?
+                    //let result = "\n - Name: " + name + "\n - landscape: " + landscape + "\n - landmarks: " + landmarks + "\n - colorPallete: " + colorPallete + "\n - Backstory: " + backstory;
+                    //res.send("World variables: " + result);
+
+
+                    //only query the fields that they want to update
+                    if(!(name === undefined)) {
+                        fields.push("name");
+                        values.push(name);
+                    }
+                    if(!(landscape === undefined)) {
+                        fields.push("landscape");
+                        values.push(landscape);
+                    }
+                    if(!(landmarks === undefined)) {
+                        fields.push("landmarks");
+                        values.push(landmarks);
+                    }
+                    if(!(colorPallete === undefined)) {
+                        fields.push("colorPallete");
+                        values.push(colorPallete);
+                    }
+                    if(!(backstory === undefined)) {
+                        fields.push("backstory");
+                        values.push(backstory);
+                    }
+                }
+            values.push(id);
+            let query = `UPDATE ${tableName} SET `;
+            //let result = "";
+            for (let i = 0; i < fields.length; i++) {
+                //result += "\n - " + fields[i] + ": " + values[i];
+                query += fields[i] + " = ?"
+                if (i != (fields.length-1)) {
+                    query += ", "
+                }
             }
+            query += " WHERE id = ?"
+            console.log("query: " + query);
+            db.run(query, values, function (err) { 
+                if (err) return res.status(500).json({ error: err.message }); 
+                return res.json({ message: tableName + " saved successfully!" });
+            });
+        }),
+        ((reject) => {
+            console.log("reject: "+ reject);
+            return res.json({message:reject});
+        })
+        )
+        .catch(reject => {
+            return res.json({error:reject});
         });
-
-        //start updates
-        if (tableName == "character") {
-            //Assign and check for empty variables
-            let {name, age, pronouns, gender, sexuality, race, backstory, colorPallete, worldID} = req.body || ""; 
-
-            //character name should be ensured client-side, but backup check server-side as well
-            if(name == "") name = "untitled";
-            if(age == "") age = null;//**NEEDS to be set, other okay to be empty string 
-            if(pronouns == "") pronouns = null;
-            if(gender == "") gender = null;
-            if(sexuality == "") sexuality = null;
-            if(race == "") race = null;
-            if(backstory == "") backstory = null;
-            if(colorPallete == "") colorPallete = null; //Probably needs to be set?
-            if(worldID == "") worldID = null;//**NEEDS to be set, other okay to be empty string
-            
-            //only query the fields that they want to update
-            if(!(name === undefined)) {
-                fields.push("name");
-                values.push(name);
-            }
-            if(!(age === undefined)) {
-                fields.push("age");
-                values.push(age);
-            }
-            if(!(pronouns === undefined)) {
-                fields.push("pronouns");
-                values.push(pronouns);
-            }
-            if(!(gender === undefined)) {
-                fields.push("gender");
-                values.push(gender);
-            }
-            if(!(sexuality === undefined)) {
-                fields.push("sexuality");
-                values.push(sexuality);
-            }
-            if(!(race === undefined)) {
-                fields.push("race");
-                values.push(race);
-            }
-            if(!(backstory === undefined)) {
-                fields.push("backstory");
-                values.push(backstory);
-            }
-            if(!(colorPallete === undefined)) {
-                fields.push("colorPallete");
-                values.push(colorPallete);
-            }
-            if(!(worldID === undefined)) {
-                fields.push("worldID");
-                values.push(worldID);
-            }        
-        } else {
-            let {name, landscape, landmarks, colorPallete, backstory} = req.body;
-            
-            //world name should be ensured client-side, but backup check server-side as well
-            if(name == "") name = "untitled";
-            if(landscape == "") landscape = null;
-            if(landmarks == "") landmarks = null;
-            if(backstory == "") backstory = null;
-            if(colorPallete == "") colorPallete = null; //Probably needs to be set?
-            //let result = "\n - Name: " + name + "\n - landscape: " + landscape + "\n - landmarks: " + landmarks + "\n - colorPallete: " + colorPallete + "\n - Backstory: " + backstory;
-            //res.send("World variables: " + result);
-
-
-            //only query the fields that they want to update
-            if(!(name === undefined)) {
-                fields.push("name");
-                values.push(name);
-            }
-            if(!(landscape === undefined)) {
-                fields.push("landscape");
-                values.push(landscape);
-            }
-            if(!(landmarks === undefined)) {
-                fields.push("landmarks");
-                values.push(landmarks);
-            }
-            if(!(colorPallete === undefined)) {
-                fields.push("colorPallete");
-                values.push(colorPallete);
-            }
-            if(!(backstory === undefined)) {
-                fields.push("backstory");
-                values.push(backstory);
-            }
-        }
     }
-    values.push(id);
-    let query = "UPDATE character SET ";
-    //let result = "";
-    for (let i = 0; i < fields.length; i++) {
-        //result += "\n - " + fields[i] + ": " + values[i];
-        query += fields[i] + " = ?"
-        if (i != (fields.length-1)) {
-            query += ", "
-        }
-    }
-    query += " WHERE id = ?"
-    db.run(query, values, function (err) { if (err) return res.status(500).json({ error: err.message }); 
-    //res.json({ message: "\"" + name + "\" saved successfully!" });
-    return res.json({ message: tableName + " saved successfully!" });
-    });
 });
 
 
 //delete
+
+async function creationDeleteHelp(query, id) {
+    console.log("Start promise: " + query);
+    const result = new Promise((resolve,reject) => {
+        console.log("in promise");
+        db.all(query, [id], function (err, rows) {
+            //console.log("ran check: " + rows);
+            if (err) {throw (err)};
+            if(rows.length !=1) {
+                console.log("rejecting update");
+                if(rows.length > 1) reject('multiple matching ids');
+                else reject ('No such id');
+            }
+            else {
+                console.log("Update passed");
+                resolve("pass");
+            }
+        });
+    });
+    console.log("finished promise");
+    return result;
+}
 
 //TODO: Handle client-side check when world being deleted if there are any characters
 //Give option to delete the characters or make them homeless (worldID=null)
@@ -705,20 +778,33 @@ app.delete('/api/creation/:tableName/:id', (req, res) => {
     {
         return res.status(500).json({error: "invalid table or id {tableName=" + tableName + ", id=" + id + "}"})
     }
- 
+    else {
     let query = "SELECT id FROM " + tableName + " WHERE id=?;";
-    db.all(query, [id], function (err, rows) {
+    /* db.all(query, [id], function (err, rows) {
         if (err) return res.status(500).json({ error: err.message });
         if(rows.length !=1) {
             if(rows.length > 1) return res.status(500).json({error: 'multiple matching ids'});
             else return res.json({message: 'No such id'});
         }
-    });
-     
-    //Actually delete
-    query = "DELETE FROM "  + tableName + " WHERE id = ?";
-    db.run(query, id, function (err) {
-    if (err) return res.status(500).json({ error: err.message });
-    return res.json({ message: 'Record deleted successfully' });
-    });
+    }); */
+
+    creationUpdateHelp(query,id)
+        .then((resolve => {
+            console.log("Accept: " + resolve);
+            //Actually delete
+            query = "DELETE FROM "  + tableName + " WHERE id = ?";
+            db.run(query, id, function (err) {
+            if (err) return res.status(500).json({ error: err.message });
+            return res.json({ message: 'Record deleted successfully' });
+            });
+        }),
+        ((reject) => {
+            console.log("reject: "+ reject);
+            return res.json({message:reject});
+        })
+        )
+        .catch(reject => {
+            return res.json({error:reject});
+        });
+    }
   });

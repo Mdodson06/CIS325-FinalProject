@@ -231,6 +231,11 @@ function Internal() {
     var formData = new FormData(document.getElementById('advancedSearchForm'));
     //alert(JSON.stringify(urlData));
     //var urlParams = new URLSearchParams(urlData);
+    
+    if(formData.get('name').length <= 0) {
+      alert("Name must be provided");
+      return;
+    }
 
     //TODO: Temporary until colorPallete added
     formData.append("colorPallete","");
@@ -260,91 +265,59 @@ function Internal() {
     
     //formData.append("worldID","");
     var urlData = Object.fromEntries(formData);
-
-    if(formData.get('name').length <= 0) {
-      alert("Name must be provided");
-      return;
+  
+    const url = `http://localhost:8080/api/creation/${tableType}`;
+    //alert(url);
+    //alert(JSON.stringify(urlData));
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+      'Content-Type': 'application/json'
+      },
+      body:JSON.stringify(urlData)
+    })
+    .catch(error => {
+      alert(error);
+    });   
+    const result = await response.json();
+    if(result.message != undefined) {
+      alert("Success: " + result.message);
     } else {
-      const url = `http://localhost:8080/api/creation/${tableType}`;
-      //alert(url);
-      //alert(JSON.stringify(urlData));
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-        'Content-Type': 'application/json'
-        },
-        body:JSON.stringify(urlData)
-      })
-      .catch(error => {
-        alert(error);
-      });   
-      const result = await response.json();
-      if(result.message != undefined) {
-        alert("Success: " + result.message);
-      } else {
-        alert("Failure: " + (result.error || "Unknown"));
-      }
+      alert("Failure: " + (result.error || "Unknown"));
     }
+  
     }
 
     async function updateField() {
-    //alert("called updateField");
     var formData = new FormData(document.getElementById('advancedSearchForm'));
-    //alert("formData got: " + formData.get('name'));
-    
-    //TODO: check if ID accurate
-    //Nvm it'll do it itself 
-    /* const realID = await getWorldID(-1)
-    .then(value => 
-      {
-        alert("Done");
-        if (value == undefined || value == -1) {
-          alert("ERROR: realID is " + value); //TODO: Replace with notif that there's more than one of that name 
-          return -1;
-        }
-        else {
-          alert("Else: " + value);
-          return value;
-        }
-      });
-    if(realID == -1) return;  */
-    
-    //check worldName
-    //TODO: Temporary until colorPallete added
-
-    formData.append("colorPallete","");
-    
-    if(formData.get("worldName") != "") {
-    const worldID = await getWorldID(formData.get("worldName"))
-    .then(value => 
-      {
-        //alert("Done");
-        if (value == undefined || value == -1) {
-          alert("ERROR: worldID is " + value); //TODO: Replace with notif that there's more than one of that name 
-          return -1;
-        }
-        else {
-          //alert("Else: " + value);
-          return value;
-        } //TODO: Some error ikd 
-      });
-    //alert("WORLD ID: " + worldID);
-
-    if(worldID == undefined || worldID == -1) {
-      alert("ERROR: World ID is: " + worldID);
+    var lengthOfForm = 0;
+    if(isNaN(formData.get('id'))){
+      alert("Not a valid ID number");
       return;
     }
-    else formData.append('worldID',worldID);
-    } else {
-      formData.append('worldID',"");
+    const realID = parseInt(formData.get('id'));
+    formData.append("colorPallete","");
+    var tempDelete = new FormData();
+    for(const pair of formData.entries()) {
+      //console.log("get: " + pair[0]);
+      if(pair[1] == "") {
+        console.log("Nothing there: " + pair[1]);
+        //formData.delete(pair[0]);
+        tempDelete.append(pair[0],pair[1]);
+      } else {
+        lengthOfForm++;
+        //console.log("length: " + lengthOfForm);
+      }
     }
-
-    //alert("BEFORE worldName");
-    formData.delete("worldName");
-    //alert("worldName DELETED");
-    
-    //alert("tableType: " + tableType);
-    if(tableType == "character") {
+    //console.log("final length of log: " + lengthOfForm);
+    if(lengthOfForm < 2) {
+      alert("No fields to update");
+      return;
+    }
+    for(const pair of tempDelete.entries()) {
+      formData.delete(pair[0]);
+    }
+    /* if(tableType == "character") {
       if(formData.get('name') == "" && formData.get('age') == "" && formData.get('pronouns') == "" && 
       formData.get('gender') == "" && formData.get('sexuality') == "" && formData.get('race') == "" &&
       formData.get('backstory') == "" && formData.get('worldID') == ""){
@@ -359,13 +332,39 @@ function Internal() {
       }
     } else { //just in case it's set to all
       return;
+    } */
+            
+    if(tableType == "character") {
+      if(formData.get("worldName") != undefined) {
+      const worldID = await getWorldID(formData.get("worldName"))
+      .then(value => 
+        {
+          //alert("Done");
+          if (value == undefined || value == -1) {
+            return -1;
+          }
+          else {
+            //alert("Else: " + value);
+            return value;
+          } //TODO: Some error ikd 
+        });
+      //alert("WORLD ID: " + worldID);
+
+      if(worldID == undefined || worldID == -1) {
+        alert("world does not exist");
+        return;
+      }
+      else formData.append('worldID',worldID);
+      } /* else {
+        formData.append('worldID',"");
+      } */
+
+      //alert("BEFORE worldName");
+      //formData.delete("worldName");
+      //alert("worldName DELETED");
+      
+      //alert("tableType: " + tableType);
     }
-    if(isNaN(formData.get('id'))){
-      alert("Not a valid ID number");
-      return;
-    }
-    const realID = parseInt(formData.get('id'));
-    
     var urlData = Object.fromEntries(formData);
     var urlParams = new URLSearchParams(urlData);
 
@@ -393,7 +392,7 @@ function Internal() {
       const message = json.message;
       if(message != undefined) {
         //alert("MESSAGE: " + message);
-        alert("Updated successfully!");
+        alert(message);
       } else if(json.error != undefined) {
         alert(json.error);
       }else {
@@ -430,8 +429,8 @@ function Internal() {
       //alert("Recieved response");
       const message = json.message;
       if(message != undefined) {
-        //alert(message);
-        alert("Deleted successfully!");
+        alert(message);
+        //alert("Deleted successfully!");
       } else if(json.error != undefined) {
         alert(json.error);
       }else {
@@ -441,6 +440,9 @@ function Internal() {
     }).catch(error => {alert("Second error: "); alert(error)});
     }
 
+    function clearContent() {
+      document.getElementById("searchResults").innerHTML = ``;
+    }
 
 
 
@@ -497,308 +499,223 @@ function Internal() {
           </div>
         </>
       )
-    }else if (pageType=="deleteField"){
-      return(<>
+  } else if (pageType=="deleteField"){
+    return(<>
+      <div class="question">
+      <form id="deleteForm" onSubmit={e => e.preventDefault()}>
         <div class="question">
-        <form id="deleteForm" onSubmit={e => e.preventDefault()}>
+          <label for="id">Delete ID: </label>
+          <input type="text" name="id" id="id"/>
+          </div>
+          <p>From:</p>
           <div class="question">
-            <label for="id">Delete ID: </label>
-            <input type="text" name="id" id="id"/>
-            </div>
-            <p>From:</p>
-            <div class="question">
 
-              <input type="radio" id="characterTable" name="tableType" onChange={e=>setTableType("character")}/>
-              <label for="characterTable">Character</label>
-              <br/>
-              <input type="radio" id="worldTable" name="tableType" onChange={e=>setTableType("world")}/>
-              <label for="worldTable">World</label>
-              <br/>
-              <input type="radio" id="allTables" name="tableType" onChange={e=>setTableType("all")}/>
-              <label for="allTables">All</label>
-            </div>
-            <div class="question">
+            <input type="radio" id="characterTable" name="tableType" onChange={e=>setTableType("character")}/>
+            <label for="characterTable">Character</label>
             <br/>
-            <label for="confirm">Type "DELETE" to confirm: </label>
-            <input type="text" name="confirm" id="confirm"/>
-            <button onClick={e=>deleteField()}>Submit</button>
+            <input type="radio" id="worldTable" name="tableType" onChange={e=>setTableType("world")}/>
+            <label for="worldTable">World</label>
+          </div>
+          <div class="question">
+          <br/>
+          <label for="confirm">Type "DELETE" to confirm: </label>
+          <input type="text" name="confirm" id="confirm"/>
+          <button onClick={e=>deleteField()}>Submit</button>
+        </div>
+        
+      </form>
+      <button onClick={e=>setPageType("generalSearch")}>Back</button>
+      </div>
+    </>)
+  
+  } else {// if(pageType == "advancedSearch") {
+    return (
+      <>
+        <div>
+          <div>
+            <button onClick={e=>{setPageType("newField")}}>New</button>
+            <button onClick={e=>{setPageType("updateField")}}>Update</button>
+            <button onClick={e=>{setPageType("deleteField")}}>Delete</button>
+          </div>
+          <div class="question">
+            By:<br/>
+            <input type="radio" id="characterTable" name="tableType" onChange={e=>setTableType("character")}/>
+            <label for="characterTable">Character</label>
+            <br/>
+            <input type="radio" id="worldTable" name="tableType" onChange={e=>setTableType("world")}/>
+            <label for="worldTable">World</label>
+            <br/>
+            {(pageType=="advancedSearch") ?
+              <>
+                <input type="radio" id="allTables" name="tableType" onChange={e=>setTableType("all")}/>
+                <label for="allTables">All</label>
+              </> 
+              : (tableType == "all") ? setTableType("character") :<></>
+            }
+            
           </div>
           
-        </form>
-        <div id="searchResults"></div>  
-        <button onClick={e=>setPageType("generalSearch")}>Back</button>
-        </div>
-      </>)
-    
-    } else {// if(pageType == "advancedSearch") {
-      return (
-        <>
+          {/* getting form type based on selection dynamically */}
           <div>
-            <div>
-              <button onClick={e=>{setPageType("newField")}}>New</button>
-              <button onClick={e=>{setPageType("updateField")}}>Update</button>
-              <button onClick={e=>{setPageType("deleteField")}}>Delete</button>
-            </div>
-            <div class="question">
-              By:<br/>
-              <input type="radio" id="characterTable" name="tableType" onChange={e=>setTableType("character")}/>
-              <label for="characterTable">Character</label>
-              <br/>
-              <input type="radio" id="worldTable" name="tableType" onChange={e=>setTableType("world")}/>
-              <label for="worldTable">World</label>
-              <br/>
-              {(pageType=="advancedSearch") ?
-                <>
-                  <input type="radio" id="allTables" name="tableType" onChange={e=>setTableType("all")}/>
-                  <label for="allTables">All</label>
-                </> 
-                : (tableType == "all") ? setTableType("character") :<></>
-              }
-              
-            </div>
-            
-            {/* getting form type based on selection dynamically */}
-            <div>
-            <form id="advancedSearchForm" onSubmit={e => e.preventDefault()}>
-            {(pageType == "updateField") ? 
+          <form id="advancedSearchForm" onSubmit={e => e.preventDefault()}>
+          {(pageType == "updateField") ? 
+          <>
+          <div class="question">
+            <label for="id">Update ID: </label>
+            <input type="text" name="id" id="id"/>
+          </div>
+          </> : <></>
+          }
+          {(tableType=="character") ? 
             <>
             <div class="question">
-              <label for="id">Update ID: </label>
-              <input type="text" name="id" id="id"/>
+                <label for="name">Name: </label>
+                <input type="text" name="name" id="name"/>
             </div>
-            </> : <></>
-            }
-            {(tableType=="character") ? 
+            <div class="question">
+                <label for="age">Age: </label>
+                <input type="text" name="age" id="age"/>
+            </div>
+            <div class="question">
+                <label for="pronouns">Pronouns: </label>
+                <input type="text" name="pronouns" id="pronouns"/>
+            </div>
+            <div class="question">
+                <label for="gender">Gender: </label>
+                <input type="text" name="gender" id="gender"/>
+            </div>
+            <div class="question">
+                <label for="sexuality">Sexuality: </label>
+                <input type="text" name="sexuality" id="sexuality"/>
+            </div>
+            <div class="question">
+                <label for="race">Race: </label>
+                <input type="text" name="race" id="race"/>
+            </div>
+            <div class="question">
+                <label for="worldName">Home World: </label>
+                <input type="text" name="worldName" id="worldName"/>
+            </div>             
+            { (pageType == "advancedSearch") ?
+              <>
+                <div class="question">
+                  <label for="anyField">Any match: </label>
+                  <input type="text" name="anyField" id="anyField"/>
+                </div>
+              </>
+              :
               <>
               <div class="question">
-                  <label for="name">Name: </label>
-                  <input type="text" name="name" id="name"/>
-              </div>
-              <div class="question">
-                  <label for="age">Age: </label>
-                  <input type="text" name="age" id="age"/>
-              </div>
-              <div class="question">
-                  <label for="pronouns">Pronouns: </label>
-                  <input type="text" name="pronouns" id="pronouns"/>
-              </div>
-              <div class="question">
-                  <label for="gender">Gender: </label>
-                  <input type="text" name="gender" id="gender"/>
-              </div>
-              <div class="question">
-                  <label for="sexuality">Sexuality: </label>
-                  <input type="text" name="sexuality" id="sexuality"/>
-              </div>
-              <div class="question">
-                  <label for="race">Race: </label>
-                  <input type="text" name="race" id="race"/>
-              </div>
-              <div class="question">
-                  <label for="worldName">Home World: </label>
-                  <input type="text" name="worldName" id="worldName"/>
-              </div>             
-              { (pageType == "advancedSearch") ?
-                <>
-                  <div class="question">
-                    <label for="anyField">Any match: </label>
-                    <input type="text" name="anyField" id="anyField"/>
-                  </div>
-                </>
-                :
-                <>
+                <label for="backstory">Backstory: </label>
+                <input type="text" name="backstory" id="backstory"/>
+              </div> 
+              </>
+            }
+            {/* <button onClick={e=>advancedSearch("character")}>Search</button> */}
+            </>
+            :
+            (tableType == "world") ? 
+            <>
+            <div class="question">
+                <label for="name">Name: </label>
+                <input type="text" name="name" id="name"/>
+            </div>
+            <div class="question">
+                <label for="landscape">Landscape: </label>
+                <input type="text" name="landscape" id="landscape"/>
+            </div>
+            <div class="question">
+                <label for="landmarks">Landmarks: </label>
+                <input type="text" name="landmarks" id="landmarks"/>
+            </div>              
+            { (pageType == "advancedSearch") ?
+              <>
+                <div class="question">
+                  <label for="anyField">Any match: </label>
+                  <input type="text" name="anyField" id="anyField"/>
+                </div>
+              </>
+              :
+              <>
                 <div class="question">
                   <label for="backstory">Backstory: </label>
                   <input type="text" name="backstory" id="backstory"/>
                 </div> 
-                </>
-              }
-              {/* <button onClick={e=>advancedSearch("character")}>Search</button> */}
-              </>
-              :
-              (tableType == "world") ? 
-              <>
-              <div class="question">
-                  <label for="name">Name: </label>
-                  <input type="text" name="name" id="name"/>
-              </div>
-              <div class="question">
-                  <label for="landscape">Landscape: </label>
-                  <input type="text" name="landscape" id="landscape"/>
-              </div>
-              <div class="question">
-                  <label for="landmarks">Landmarks: </label>
-                  <input type="text" name="landmarks" id="landmarks"/>
-              </div>              
-              { (pageType == "advancedSearch") ?
-                <>
-                  <div class="question">
-                    <label for="anyField">Any match: </label>
-                    <input type="text" name="anyField" id="anyField"/>
-                  </div>
-                </>
-                :
-                <>
-                  <div class="question">
-                    <label for="backstory">Backstory: </label>
-                    <input type="text" name="backstory" id="backstory"/>
-                  </div> 
-                </>
-              }
-              {/* <button onClick={e=>advancedSearch("world")}>Search</button> */}
-              </>
-             : (tableType == "all") ? 
-              <>
-              <div class="question">
-                  <label for="name">Name: </label>
-                  <input type="text" name="name" id="name"/>
-              </div>
-              <div class="question">
-                  <label for="age">Age: </label>
-                  <input type="text" name="age" id="age"/>
-              </div>
-              <div class="question">
-                  <label for="pronouns">Pronouns: </label>
-                  <input type="text" name="pronouns" id="pronouns"/>
-              </div>
-              <div class="question">
-                  <label for="gender">Gender: </label>
-                  <input type="text" name="gender" id="gender"/>
-              </div>
-              <div class="question">
-                  <label for="sexuality">Sexuality: </label>
-                  <input type="text" name="sexuality" id="sexuality"/>
-              </div>
-              <div class="question">
-                  <label for="race">Race: </label>
-                  <input type="text" name="race" id="race"/>
-              </div>
-              <div class="question">
-                  <label for="worldName">Home World (for characters): </label>
-                  <input type="text" name="worldName" id="worldName"/>
-              </div>
-              <div class="question">
-                  <label for="landscape">Landscape: </label>
-                  <input type="text" name="landscape" id="landscape"/>
-              </div>
-              <div class="question">
-                  <label for="landmarks">Landmarks: </label>
-                  <input type="text" name="landmarks" id="landmarks"/>
-              </div>             
-              <div class="question">
-                  <label for="anyField">Any match: </label>
-                  <input type="text" name="anyField" id="anyField"/>
-              </div>
-              </>
-              :<>ERROR: TableType?</>
-            }
-            { /* Advanced search vs update vs new search checks */
-              <>
-              {(pageType == "advancedSearch") ? 
-                  (tableType == "all") ? <button onClick={e=>advancedSearchAll()}>Search</button>
-                  : <button onClick={e=>advancedSearch(tableType)}>Search</button>
-                : (pageType == "updateField") ?
-                    <><button onClick={e=>updateField()}>Update</button></> 
-                : (pageType == "newField") ? 
-                <><button onClick={e=>newField()}>Add</button></>
-                : <>ERROR</>
-              }
               </>
             }
-            
-            </form>
-          </div>
-        </div>
-        <div id="searchResults">
-            
-        </div>
-        <button onClick={e=>setPageType("generalSearch")}>Back</button>
-      </>
-      )
-    } /* else if(pageType == "newField") { 
-      return (
-        <>
-          <div>
-              <div class="question">
-              <p>Search:</p>
-                <input type="radio" id="characterTable" name="tableType" onChange={e=>setTableType("character")}/>
-                <label for="characterTable">Character</label>
-                <br/>
-                <input type="radio" id="worldTable" name="tableType" onChange={e=>setTableType("world")}/>
-                <label for="worldTable">World</label>
-                <br/>
+            {/* <button onClick={e=>advancedSearch("world")}>Search</button> */}
+            </>
+            : (tableType == "all") ? 
+            <>
+            <div class="question">
+                <label for="name">Name: </label>
+                <input type="text" name="name" id="name"/>
             </div>
-            
-            {/* getting form type based on selection dynamically * /}
-            <div>
-            <form id="newFieldForm" onSubmit={e => e.preventDefault()}>
-            {(tableType=="character") ? 
-              <>
-              <div class="question">
-                  <label for="name">*Name: </label>
-                  <input type="text" name="name" id="name"/>
-              </div>
-              <div class="question">
-                  <label for="age">Age: </label>
-                  <input type="text" name="age" id="age"/>
-              </div>
-              <div class="question">
-                  <label for="pronouns">Pronouns: </label>
-                  <input type="text" name="pronouns" id="pronouns"/>
-              </div>
-              <div class="question">
-                  <label for="gender">Gender: </label>
-                  <input type="text" name="gender" id="gender"/>
-              </div>
-              <div class="question">
-                  <label for="sexuality">Sexuality: </label>
-                  <input type="text" name="sexuality" id="sexuality"/>
-              </div>
-              <div class="question">
-                  <label for="race">Race: </label>
-                  <input type="text" name="race" id="race"/>
-              </div>
-              <div class="question">
-                  <label for="worldName">Home World: </label>
-                  <input type="text" name="worldName" id="worldName"/>
-              </div>
-              <button onClick={e=>newField("character")}>Search</button>
-              </>
-              :
-              (tableType == "world") ? 
-              <>
-              <div class="question">
-                  <label for="name">*Name: </label>
-                  <input type="text" name="name" id="name"/>
-              </div>
-              <div class="question">
-                  <label for="landscape">Landscape: </label>
-                  <input type="text" name="landscape" id="landscape"/>
-              </div>
-              <div class="question">
-                  <label for="landmarks">Landmarks: </label>
-                  <input type="text" name="landmarks" id="landmarks"/>
-              </div>
-              <button onClick={e=>newField("world")}>Search</button>
-              </>
-            : "ERROR: Search by type not found"  
+            <div class="question">
+                <label for="age">Age: </label>
+                <input type="text" name="age" id="age"/>
+            </div>
+            <div class="question">
+                <label for="pronouns">Pronouns: </label>
+                <input type="text" name="pronouns" id="pronouns"/>
+            </div>
+            <div class="question">
+                <label for="gender">Gender: </label>
+                <input type="text" name="gender" id="gender"/>
+            </div>
+            <div class="question">
+                <label for="sexuality">Sexuality: </label>
+                <input type="text" name="sexuality" id="sexuality"/>
+            </div>
+            <div class="question">
+                <label for="race">Race: </label>
+                <input type="text" name="race" id="race"/>
+            </div>
+            <div class="question">
+                <label for="worldName">Home World (for characters): </label>
+                <input type="text" name="worldName" id="worldName"/>
+            </div>
+            <div class="question">
+                <label for="landscape">Landscape: </label>
+                <input type="text" name="landscape" id="landscape"/>
+            </div>
+            <div class="question">
+                <label for="landmarks">Landmarks: </label>
+                <input type="text" name="landmarks" id="landmarks"/>
+            </div>             
+            <div class="question">
+                <label for="anyField">Any match: </label>
+                <input type="text" name="anyField" id="anyField"/>
+            </div>
+            </>
+            :<>ERROR: TableType?</>
+          }
+          { /* Advanced search vs update vs new search checks */
+            <>
+            {(pageType == "advancedSearch") ? 
+                (tableType == "all") ? <button onClick={e=>advancedSearchAll()}>Search</button>
+                : <button onClick={e=>advancedSearch(tableType)}>Search</button>
+              : (pageType == "updateField") ?
+                  <><button onClick={e=>updateField()}>Update</button></> 
+              : (pageType == "newField") ? 
+              <><button onClick={e=>newField()}>Add</button></>
+              : <>ERROR</>
             }
-            </form>
-          </div>
-          </div>
-          <div id="searchResults">
-            
-          </div>
-          <button onClick={e=>setPageType("generalSearch")}>Back</button>
-        </>
-      )
-    }
-     else {
-        return(
-        <>
-            <h1>Real type: {pageType}</h1>
-        </>
-        )
-    }*/
+            </>
+          }
+          
+          </form>
+        </div>
+      </div>
+      <div id="searchResults">
+          
+      </div>
+      <button onClick={e=>{
+        {clearContent();
+        setPageType("generalSearch");}
+      }}>Back</button>
+    </>
+    )
   }
+}
 export default Internal

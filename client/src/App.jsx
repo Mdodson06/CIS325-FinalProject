@@ -152,27 +152,54 @@ function App() {
       'Content-Type': 'application/json'
       },
       body:JSON.stringify(urlData)
-    })
-    .catch(error => {
-      alert(error);
-    });
-    //alert("recieved");
-    var result = await response.json()
+    }).then(response => response.json())
     .then(json => {
       //alert("Recieved response");
       const message = json.message;
       if(message != undefined) {
         alert(message);
       } else if(json.error != undefined) {
-        alert(json.error);
-        setLocked(true);
-        setPageType("login");
-        setUsername("user");
-      }else {
+          //alert(json.error);
+          const errMessage = json.error;
+          if(errMessage.includes("UNIQUE"))
+            alert("Username or email already taken");
+          else if (errMessage.includes("User not logged in")) {
+            alert(errMessage);
+            setLocked(true);
+            setPageType("login");
+            setUsername("user");
+          }
+          else alert(errMessage);
+      } else {
+        //alert("Message undefined but recieved");
+      }
+    }).catch(error => {
+      alert(error);
+    });
+    //alert("recieved");
+    /* var result = await response.json()
+    .then(json => {
+      //alert("Recieved response");
+      const message = json.message;
+      if(message != undefined) {
+        alert(message);
+      } else if(json.error != undefined) {
+          //alert(json.error);
+          const errMessage = json.error;
+          if(errMessage.includes("UNIQUE"))
+            alert("Username or email already taken");
+          else if (errMessage.includes("User not logged in")) {
+            alert(errMessage);
+            setLocked(true);
+            setPageType("login");
+            setUsername("user");
+          }
+          else alert(errMessage);
+      } else {
         //alert("Message undefined but recieved");
       }
     }).catch(error => {alert("Second error: "); alert(error)});
-
+ */
   }
   async function deleteAccount() {
     //alert("Delete user called");
@@ -220,7 +247,7 @@ function App() {
           <div>
             <form id="loginForm" onSubmit={e => e.preventDefault()}>
               <div class="question">
-                  <label for="username">Username/Email: </label>
+                  <label for="username">Username: </label>
                   <input type="text" name="username" id="username"/>
               </div>
               <br/><br/>

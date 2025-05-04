@@ -8,7 +8,8 @@
     "start": "concurrently \"npm run start:client\" \"npm run start:server\"",
     "start:client": "cd client && npm run dev",
     "start:server": "cd server && nodemon index.js",
-    "test": "jest --detectOpenHandles -b"
+    "test": "jest --detectOpenHandles -b",
+    "start:test": "npm run test && npm run start"
   },
   "dependencies": {
     "sqlite3": "^5.1.7"

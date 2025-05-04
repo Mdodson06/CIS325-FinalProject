@@ -12,6 +12,11 @@ describe("Connection tests", () => {
         const response = await request(app).get('/');
         expect(response.status).toBe(200);
     });
+    /* used to make sure npm run start:test auto stopped
+    test('auto fail', async() => {
+        const response = await request(app).get('/');
+        expect(response.status).toBe(500);
+    }); */
 });
 
 describe("User interactions", () => {
