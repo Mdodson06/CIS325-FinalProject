@@ -1,6 +1,4 @@
 import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
 import axios from 'axios';
 import './App.css'
 
@@ -460,15 +458,26 @@ function Internal() {
   if(pageType == "generalSearch") {
       return (
         <>
-          <div>
+        <div className='body'>
+        <div>
             <div>
-            <button onClick={e=>{setPageType("newField")}}>New</button>
-            <button onClick={e=>{setPageType("updateField")}}>Update</button>
-            <button onClick={e=>{setPageType("deleteField")}}>Delete</button>
+            <button onClick={e=>{{
+              clearContent();
+              setPageType("newField");
+              }}}>New</button>
+            <button onClick={e=>{{
+              clearContent();
+              setPageType("updateField");
+              }}}>Update</button>
+            <button onClick={e=>{{
+              clearContent();
+              setPageType("deleteField");
+              }}}>Delete</button>
             </div>
-              <div class="question">
+              <div className="question">
+              <div className='bubble'>
               <p>By:</p>
-                <input type="radio" id="characterTable" name="tableType" onChange={e=>setTableType("character")}/>
+              <input type="radio" id="characterTable" name="tableType" onChange={e=>setTableType("character")}/>
                 <label for="characterTable">Character</label>
                 <br/>
                 <input type="radio" id="worldTable" name="tableType" onChange={e=>setTableType("world")}/>
@@ -477,18 +486,19 @@ function Internal() {
                 <input type="radio" id="allTables" name="tableType" onChange={e=>setTableType("all")}/>
                 <label for="allTables">All</label>
               </div>
+              </div>
           </div>
 
           <div>
             
             <form id="generalSearchForm" onSubmit={e => e.preventDefault()}>
-              <div class="question">
+              <div className="question">
                   <label for="search">Search: </label>
                   <input type="text" name="search" id="search"/>
                   <button onClick={e=>basicSearch(tableType)}>Search</button>
 
               </div>
-              <a onClick={e=>setPageType("advancedSearch")}>Advanced</a>
+              <a onClick={e=>{{clearContent();setPageType("advancedSearch");}}}>Advanced</a>
             {/* <button onClick={e=>basicSearch("character")}>Search characters</button>
             <button onClick={e=>basicSearch("world")}>Search Worlds</button>
             <button onClick={e=>basicSearch("all")}>Search All</button> */}
@@ -497,26 +507,31 @@ function Internal() {
           <div id="searchResults">
             
           </div>
+        </div>
         </>
       )
   } else if (pageType=="deleteField"){
     return(<>
-      <div class="question">
+      <div className='body'>
+        <div>
+        <button onClick={e=>{{clearContent();setPageType("newField");}}}>New</button>
+        <button onClick={e=>{{clearContent();setPageType("updateField");}}}>Update</button>
+        <button onClick={e=>{{clearContent();setPageType("deleteField");}}}>Delete</button>
+        </div>
       <form id="deleteForm" onSubmit={e => e.preventDefault()}>
-        <div class="question">
+        <div className="question">
           <label for="id">Delete ID: </label>
           <input type="text" name="id" id="id"/>
           </div>
-          <p>From:</p>
-          <div class="question">
-
+          <div className="bubble">
+            <p>From:</p>
             <input type="radio" id="characterTable" name="tableType" onChange={e=>setTableType("character")}/>
             <label for="characterTable">Character</label>
             <br/>
             <input type="radio" id="worldTable" name="tableType" onChange={e=>setTableType("world")}/>
             <label for="worldTable">World</label>
           </div>
-          <div class="question">
+          <div className="question">
           <br/>
           <label for="confirm">Type "DELETE" to confirm: </label>
           <input type="text" name="confirm" id="confirm"/>
@@ -524,20 +539,20 @@ function Internal() {
         </div>
         
       </form>
-      <button onClick={e=>setPageType("generalSearch")}>Back</button>
+      <button onClick={e=>{{setPageType("generalSearch");}}}>Back</button>
       </div>
     </>)
   
   } else {// if(pageType == "advancedSearch") {
     return (
       <>
-        <div>
+        <div className='body'>
           <div>
-            <button onClick={e=>{setPageType("newField")}}>New</button>
-            <button onClick={e=>{setPageType("updateField")}}>Update</button>
-            <button onClick={e=>{setPageType("deleteField")}}>Delete</button>
+            <button onClick={e=>{{clearContent();setPageType("newField");}}}>New</button>
+            <button onClick={e=>{{clearContent();setPageType("updateField");}}}>Update</button>
+            <button onClick={e=>{{clearContent();setPageType("deleteField");}}}>Delete</button>
           </div>
-          <div class="question">
+          <div className="bubble">
             By:<br/>
             <input type="radio" id="characterTable" name="tableType" onChange={e=>setTableType("character")}/>
             <label for="characterTable">Character</label>
@@ -560,7 +575,7 @@ function Internal() {
           <form id="advancedSearchForm" onSubmit={e => e.preventDefault()}>
           {(pageType == "updateField") ? 
           <>
-          <div class="question">
+          <div className="question">
             <label for="id">Update ID: </label>
             <input type="text" name="id" id="id"/>
           </div>
@@ -568,152 +583,151 @@ function Internal() {
           }
           {(tableType=="character") ? 
             <>
-            <div class="question">
+            <div className="question">
                 <label for="name">Name: </label>
                 <input type="text" name="name" id="name"/>
             </div>
-            <div class="question">
+            <div className="question">
                 <label for="age">Age: </label>
                 <input type="text" name="age" id="age"/>
             </div>
-            <div class="question">
+            <div className="question">
                 <label for="pronouns">Pronouns: </label>
                 <input type="text" name="pronouns" id="pronouns"/>
             </div>
-            <div class="question">
+            <div className="question">
                 <label for="gender">Gender: </label>
                 <input type="text" name="gender" id="gender"/>
             </div>
-            <div class="question">
+            <div className="question">
                 <label for="sexuality">Sexuality: </label>
                 <input type="text" name="sexuality" id="sexuality"/>
             </div>
-            <div class="question">
+            <div className="question">
                 <label for="race">Race: </label>
                 <input type="text" name="race" id="race"/>
             </div>
-            <div class="question">
+            <div className="question">
                 <label for="worldName">Home World: </label>
                 <input type="text" name="worldName" id="worldName"/>
             </div>             
             { (pageType == "advancedSearch") ?
               <>
-                <div class="question">
+                <div className="question">
                   <label for="anyField">Any match: </label>
                   <input type="text" name="anyField" id="anyField"/>
                 </div>
               </>
               :
               <>
-              <div class="question">
+              <div className="question">
                 <label for="backstory">Backstory: </label>
                 <input type="text" name="backstory" id="backstory"/>
               </div> 
               </>
             }
-            {/* <button onClick={e=>advancedSearch("character")}>Search</button> */}
             </>
             :
             (tableType == "world") ? 
             <>
-            <div class="question">
+            <div className="question">
                 <label for="name">Name: </label>
                 <input type="text" name="name" id="name"/>
             </div>
-            <div class="question">
+            <div className="question">
                 <label for="landscape">Landscape: </label>
                 <input type="text" name="landscape" id="landscape"/>
             </div>
-            <div class="question">
+            <div className="question">
                 <label for="landmarks">Landmarks: </label>
                 <input type="text" name="landmarks" id="landmarks"/>
             </div>              
             { (pageType == "advancedSearch") ?
               <>
-                <div class="question">
+                <div className="question">
                   <label for="anyField">Any match: </label>
                   <input type="text" name="anyField" id="anyField"/>
                 </div>
               </>
               :
               <>
-                <div class="question">
+                <div className="question">
                   <label for="backstory">Backstory: </label>
                   <input type="text" name="backstory" id="backstory"/>
                 </div> 
               </>
             }
-            {/* <button onClick={e=>advancedSearch("world")}>Search</button> */}
             </>
             : (tableType == "all") ? 
             <>
-            <div class="question">
+            <div className="question">
                 <label for="name">Name: </label>
                 <input type="text" name="name" id="name"/>
             </div>
-            <div class="question">
+            <div className="question">
                 <label for="age">Age: </label>
                 <input type="text" name="age" id="age"/>
             </div>
-            <div class="question">
+            <div className="question">
                 <label for="pronouns">Pronouns: </label>
                 <input type="text" name="pronouns" id="pronouns"/>
             </div>
-            <div class="question">
+            <div className="question">
                 <label for="gender">Gender: </label>
                 <input type="text" name="gender" id="gender"/>
             </div>
-            <div class="question">
+            <div className="question">
                 <label for="sexuality">Sexuality: </label>
                 <input type="text" name="sexuality" id="sexuality"/>
             </div>
-            <div class="question">
+            <div className="question">
                 <label for="race">Race: </label>
                 <input type="text" name="race" id="race"/>
             </div>
-            <div class="question">
+            <div className="question">
                 <label for="worldName">Home World (for characters): </label>
                 <input type="text" name="worldName" id="worldName"/>
             </div>
-            <div class="question">
+            <div className="question">
                 <label for="landscape">Landscape: </label>
                 <input type="text" name="landscape" id="landscape"/>
             </div>
-            <div class="question">
+            <div className="question">
                 <label for="landmarks">Landmarks: </label>
                 <input type="text" name="landmarks" id="landmarks"/>
             </div>             
-            <div class="question">
+            <div className="question">
                 <label for="anyField">Any match: </label>
                 <input type="text" name="anyField" id="anyField"/>
             </div>
             </>
-            :<>ERROR: TableType?</>
+            :<>ERROR 404: PAGE NOT FOUND</>
           }
           { /* Advanced search vs update vs new search checks */
             <>
             {(pageType == "advancedSearch") ? 
-                (tableType == "all") ? <button onClick={e=>advancedSearchAll()}>Search</button>
-                : <button onClick={e=>advancedSearch(tableType)}>Search</button>
+                (tableType == "all") ? <div className='question'><button onClick={e=>advancedSearchAll()}>Search</button></div>
+                : <div className='question'><button onClick={e=>advancedSearch(tableType)}>Search</button></div>
               : (pageType == "updateField") ?
-                  <><button onClick={e=>updateField()}>Update</button></> 
+                  <><div className='question'><button onClick={e=>updateField()}>Update</button></div></> 
               : (pageType == "newField") ? 
-              <><button onClick={e=>newField()}>Add</button></>
-              : <>ERROR</>
+              <><div className='question'><button onClick={e=>newField()}>Add</button></div></>
+              : <>ERROR 404: Page not found</>
             }
             </>
           }
           
           </form>
         </div>
+        <div id="searchResults">
       </div>
-      <div id="searchResults">
-          
-      </div>
-      <button onClick={e=>{
+        <button onClick={e=>{
         {clearContent();
         setPageType("generalSearch");}
       }}>Back</button>
+      </div>
+      
+      
     </>
     )
   }

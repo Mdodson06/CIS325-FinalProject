@@ -11,7 +11,6 @@ function App() {
   const [username, setUsername] = useState("user");
   const getBackend = () => {
     axios.get('http://localhost:8080').then((data) => {
-      //this console.log will be in our frontend console
       console.log(data)
     })
   }
@@ -243,42 +242,42 @@ function App() {
     if(pageType == "login") {
       return (
         <>
-          <h1 class="header">Creation Login</h1>
-          <div>
+        <div className='header'><h1>Creation Login</h1></div>
+          <div className='body'>
             <form id="loginForm" onSubmit={e => e.preventDefault()}>
-              <div class="question">
-                  <label for="username">Username: </label>
-                  <input type="text" name="username" id="username"/>
-              </div>
-              <br/><br/>
-              <div class="question">
-                  <label for="password">Password: </label>
-                  <input type="password" name="password" id="password"/>
-              </div>
-              <br/><br/>
+                <div className='question'>
+                    <label for="username">Username: </label>
+                    <input type="text" name="username" id="username"/>
+                </div>
+                <br/><br/>
+                <div className='question'>
+                    <label for="password">Password: </label>
+                    <input type="password" name="password" id="password"/>
+                </div>
+                <p>Or click <a onClick={b =>{setPageType("signup")}}>here</a> to sign up!</p>
+              <br/>
               <button type="submit" onClick={attemptLogin}>Log-in</button>
             </form>
           </div>
-          <p>Or click <a onClick={b =>{setPageType("signup")}}>here</a> to sign up!</p>
         </>
       )
     } else if(pageType == "signup") {
       return (
         <>
-          <h1 class="header">Creation Signup</h1>
-          <div>
+          <div class="header"><h1>Creation Signup</h1></div>
+          <div className='body'>
             <form id="signupForm" onSubmit={e => e.preventDefault()}>
               <div class="question">
                   <label for="username">Username: </label>
-                  <input type="text" name="username" id="newUsername"/>
+                  <div class="questionGroup"><input type="text" name="username" id="newUsername"/>                  </div>
               </div>
               <div class="question">
                   <label for="email">Email: </label>
-                  <input type="email" name="email" id="newEmail"/>
+                  <div class="questionGroup"><input type="email" name="email" id="newEmail"/></div>
               </div>
               <div class="question">
                   <label for="password">Password: </label>
-                  <input type="password" name="password" id="password"/>
+                  <div class="questionGroup"><input type="password" name="password" id="password"/></div>
               </div>
               <button type="submit" onClick={attemptSignup}>Sign up</button>
             </form>
@@ -288,51 +287,74 @@ function App() {
     } else {
       return(
         <>
-          <h1>Real type: {pageType}</h1>
+          ERROR 404: Page not found
         </>
       )
     }
   } else {
     if(pageType == "updateAccount") {
       return (<>
-              <div>
+      <div className='header'>
+      <div><h1 id="Title">Welcome {username}!</h1></div>
+            <div id="dropWithTitle">
+              {username}
+              <div id="dropdown">
+              <p onClick={e=>setPageType("updateAccount")}>Update</p>
+              <p onClick={e=>setPageType("deleteAccount")}>Delete Account</p>
+              <p onClick={e=>logout()}>Logout</p>
+              </div>
+            </div>
+      </div>
+      
+              <div className='body'>
                 <form id="updateAccountForm" onSubmit={e => e.preventDefault()}>
                   <div class="question">
                       <label for="username">Username: </label>
-                      <input type="text" name="username" id="newUsername"/>
+                      <div class="questionGroup"><input type="text" name="username" id="newUsername"/></div>
                   </div>
                   <div class="question">
                       <label for="email">Email: </label>
-                      <input type="email" name="email" id="newEmail"/>
+                      <div class="questionGroup"><input type="email" name="email" id="newEmail"/></div>
                   </div>
                   <div class="question">
                       <label for="newPassword">New Password: </label>
-                      <input type="password" name="newPassword" id="newPassword"/>
+                      <div class="questionGroup"><input type="password" name="newPassword" id="newPassword"/></div>
                   </div>
                   <div class="question">
                       <label for="confirmPassword">Confirm New Password: </label>
-                      <input type="password" name="confirmPassword" id="confirmPassword"/>
+                      <div class="questionGroup"><input type="password" name="confirmPassword" id="confirmPassword"/></div>
                   </div>
                   <div class="question">
                       <label for="oldPassword">*Old Password: </label>
-                      <input type="password" name="oldPassword" id="oldPassword"/>
+                      <div class="questionGroup"><input type="password" name="oldPassword" id="oldPassword"/></div>
                   </div>
                   <button type="submit" onClick={updateAccount}>Update info</button>
                 </form>
+                <button onClick={e=>setPageType("internal")}>Back</button>
               </div>
 
-              <button onClick={e=>setPageType("internal")}>Back</button>
 
       </>
       )
     } else if (pageType == "deleteAccount") {
       return (
       <>
-        <div>
+      <div className='header'>
+      <div><h1 id="Title">Welcome {username}!</h1></div>
+            <div id="dropWithTitle">
+              {username}
+              <div id="dropdown">
+              <p onClick={e=>setPageType("updateAccount")}>Update</p>
+              <p onClick={e=>setPageType("deleteAccount")}>Delete Account</p>
+              <p onClick={e=>logout()}>Logout</p>
+              </div>
+            </div>
+      </div>
+        <div className='body'>
           <form id="deleteAccountForm" onSubmit={e => e.preventDefault()}>
             <div class="question">
                 <label for="confirmDelete">Type "DELETE" to confirm: </label>
-                <input type="text" name="confirmDelete" id="confirmDelete"/>
+                <div class="questionGroup"><input type="text" name="confirmDelete" id="confirmDelete"/></div>
             </div>
             <button onClick={e=>deleteAccount()}>Delete Account</button>      
             </form>
@@ -343,12 +365,23 @@ function App() {
     }
     return (
       <>
-        <h1>Welcome {username}!</h1>
-        <button onClick={e=>logout()}>Logout</button>
-        <button onClick={e=>setPageType("updateAccount")}>Update user info</button>
-        <button onClick={e=>setPageType("deleteAccount")}>Delete Account</button>
+        <div class="header">
 
+            <div><h1 id="Title">Welcome {username}!</h1></div>
+            <div id="dropWithTitle">
+              {username}
+              <div id="dropdown">
+              <p onClick={e=>setPageType("updateAccount")}>Update</p>
+              <p onClick={e=>setPageType("deleteAccount")}>Delete Account</p>
+              <p onClick={e=>logout()}>Logout</p>
+              </div>
+            </div>
+        </div>
+        
+        
+        <div className='body'>
         <Internal />
+        </div>
       </>
     )
   }
